@@ -378,9 +378,10 @@ static UIImage *RCTResizeImageIfNeeded(UIImage *image,
   });
 
   return ^{
-    if (cancelLoad) {
-      cancelLoad();
-      cancelLoad = nil;
+    dispatch_block_t cancelLoadLocal = cancelLoad;
+    cancelLoad = nil;
+    if (cancelLoadLocal && !cancelled) {
+      cancelLoadLocal();
     }
     OSAtomicOr32Barrier(1, &cancelled);
   };
@@ -505,8 +506,9 @@ static UIImage *RCTResizeImageIfNeeded(UIImage *image,
   __block volatile uint32_t cancelled = 0;
   __block dispatch_block_t cancelLoad = nil;
   dispatch_block_t cancellationBlock = ^{
-    if (cancelLoad && !cancelled) {
-      cancelLoad();
+    dispatch_block_t cancelLoadLocal = cancelLoad;
+    if (cancelLoadLocal && !cancelled) {
+      cancelLoadLocal();
     }
     OSAtomicOr32Barrier(1, &cancelled);
   };
