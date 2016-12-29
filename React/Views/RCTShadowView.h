@@ -213,4 +213,7 @@ typedef void (^RCTApplierBlock)(NSDictionary<NSNumber *, UIView *> *viewRegistry
  */
 - (CGRect)measureLayoutRelativeToAncestor:(RCTShadowView *)ancestor;
 
+- (BOOL)viewIsDescendantOf:(RCTShadowView *)ancestor;
+
+
 @end

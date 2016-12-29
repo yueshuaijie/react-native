@@ -227,6 +227,23 @@ static UIViewAnimationOptions UIViewAnimationOptionsFromRCTAnimationType(RCTAnim
 
 RCT_EXPORT_MODULE()
 
+RCT_EXPORT_METHOD(viewIsDescendantOf:(nonnull NSNumber *)reactTag
+                  ancestor:(nonnull NSNumber *)ancestorReactTag
+                  callback:(RCTResponseSenderBlock)callback)
+{
+    RCTShadowView *shadowView = _shadowViewRegistry[reactTag];
+    RCTShadowView *ancestorShadowView = _shadowViewRegistry[ancestorReactTag];
+    if (!shadowView) {
+        return;
+    }
+    if (!ancestorShadowView) {
+        return;
+    }
+    BOOL viewIsAncestor = [shadowView viewIsDescendantOf:ancestorShadowView];
+    callback(@[@(viewIsAncestor)]);
+}
+
+
 - (void)didReceiveNewContentSizeMultiplier
 {
   __weak RCTUIManager *weakSelf = self;

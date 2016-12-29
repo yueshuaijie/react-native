@@ -49,6 +49,17 @@ typedef NS_ENUM(unsigned int, meta_prop_t) {
 @synthesize reactTag = _reactTag;
 
 // css_node api
+- (BOOL)viewIsDescendantOf:(RCTShadowView *)ancestor
+{
+    NSInteger depth = 30; // max depth to search
+    RCTShadowView *shadowView = self;
+    while (depth && shadowView && shadowView != ancestor) {
+        shadowView = shadowView->_superview;
+        depth--;
+    }
+    return ancestor == shadowView;
+}
+
 
 static void RCTPrint(void *context)
 {

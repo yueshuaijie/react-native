@@ -339,10 +339,12 @@ RCT_EXPORT_MODULE()
                                                encodingOptions:
                                                convertedString:
                                                usedLossyConversion:)]) {
-      [NSString stringEncodingForData:data
-                      encodingOptions:nil
-                      convertedString:&responseText
-                  usedLossyConversion:NULL];
+         NSDictionary *options = @{ NSStringEncodingDetectionSuggestedEncodingsKey: @[@(NSUTF8StringEncoding)], };
+        [NSString stringEncodingForData:data encodingOptions:options convertedString:&responseText usedLossyConversion:NULL];
+//      [NSString stringEncodingForData:data
+//                      encodingOptions:nil
+//                      convertedString:&responseText
+//                  usedLossyConversion:NULL];
     }
 
     // If we still can't decode it, bail out
