@@ -21,6 +21,8 @@ const keyMirror = require('fbjs/lib/keyMirror');
 const normalizeColor = require('normalizeColor');
 const queryLayoutByID = require('queryLayoutByID');
 
+const DeviceEventEmitter = require('RCTDeviceEventEmitter');
+
 /**
  * `Touchable`: Taps done right.
  *
@@ -712,13 +714,62 @@ var TouchableMixin = {
 
       var shouldInvokePress =  !IsLongPressingIn[curState] || pressIsLongButStillCallOnPress;
       if (shouldInvokePress && this.touchableHandlePress) {
+		this.retrieveFromNodeChildrensBeforeOnPress();
         this.touchableHandlePress(e);
       }
     }
 
     this.touchableDelayTimeout && clearTimeout(this.touchableDelayTimeout);
     this.touchableDelayTimeout = null;
-  }
+},
+
+  retrieveFromNodeChildrensBeforeOnPress: function () {
+	  var isValidText = function(item){
+		  return item && item.type && item.type.displayName === 'Text' && item.props.children && item.props.children != '';
+	  }
+	  var isValidImage = function(item){
+		  return item && item.type && item.type.displayName === 'Image' && item.props.source.uri != '';
+	  }
+	  var isValidViewWithChildren = function(item){
+		  if(item && item.constructor === Array){
+			  return searchTitleOrImage(item);
+		  }
+		  return item && item.props.children && searchTitleOrImage(item.props.children);
+	  }
+
+	  var searchTitleOrImage = function(theChildren) {
+		  if(theChildren.constructor === Array){
+			  for (var i = 0; i < theChildren.length; i++) {
+				  var item = theChildren[i];
+				  if(isValidText(item)){
+					  DeviceEventEmitter.emit('RCT_CLICK_EVENT_TOUCHABLEOPACITY', {value: item.props.children});
+					  return true;
+				  }
+				  if(isValidViewWithChildren(item)){
+					  return true;
+				  }
+			  }
+		  }else {
+			  if(isValidText(theChildren)){
+				  DeviceEventEmitter.emit('RCT_CLICK_EVENT_TOUCHABLEOPACITY', {value: theChildren.props.children});
+				  return true;
+			  }
+
+			  if(isValidImage(theChildren)){
+				  DeviceEventEmitter.emit('RCT_CLICK_EVENT_TOUCHABLEOPACITY', {source: theChildren.props.source.uri});
+				  return true;
+			  }
+
+			  if(isValidViewWithChildren(theChildren)){
+				  return true;
+			  }
+		  }
+		  return false;
+	  }
+
+	  var children = this.props.children;
+	  searchTitleOrImage(children);
+  },
 
 };
 
