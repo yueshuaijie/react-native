@@ -729,9 +729,12 @@ var TouchableMixin = {
       DeviceEventEmitter.emit(RCT_CLICK_EVENT_TOUCHABLEOPACITY, emitValue);
     }
 
-    if(this.itemBeforeOnPress){
-      doEmit(this.props.itemBeforeOnPress());
-      return;
+    if(this.props.autoLogValueWillOnPress){
+    let value = this.props.autoLogValueWillOnPress();
+    if(value){
+      doEmit(value);
+          return;
+    }
     }
 
     var isValidText = function(item){
