@@ -22,7 +22,6 @@ const normalizeColor = require('normalizeColor');
 const queryLayoutByID = require('queryLayoutByID');
 
 const DeviceEventEmitter = require('RCTDeviceEventEmitter');
-const RCT_CLICK_EVENT_TOUCHABLEOPACITY = 'RCT_CLICK_EVENT_TOUCHABLEOPACITY';
 
 /**
  * `Touchable`: Taps done right.
@@ -725,8 +724,10 @@ var TouchableMixin = {
 },
 
   retrieveFromNodeChildrensBeforeOnPress: function () {
+    if(!global.AUTO_LOG_EVENT || global.autoLogDisabled) return;
+
     var doEmit = function(emitValue) {
-      DeviceEventEmitter.emit(RCT_CLICK_EVENT_TOUCHABLEOPACITY, emitValue);
+      DeviceEventEmitter.emit(global.AUTO_LOG_EVENTS.RCT_CLICK_EVENT_TOUCHABLE, emitValue);
     }
 
     if(this.props.autoLogValueWillOnPress){
