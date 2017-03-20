@@ -724,7 +724,7 @@ var TouchableMixin = {
 },
 
   retrieveFromNodeChildrensBeforeOnPress: function () {
-    if(!global.AUTO_LOG_EVENT || global.autoLogDisabled) return;
+    if(!global.AUTO_LOG_EVENTS || global.autoLogDisabled) return;
 
     var doEmit = function(emitValue) {
       DeviceEventEmitter.emit(global.AUTO_LOG_EVENTS.RCT_CLICK_EVENT_TOUCHABLE, emitValue);
