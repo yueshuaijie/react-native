@@ -731,9 +731,9 @@ var TouchableMixin = {
     }
 
     if(this.props.autoLogValueWillOnPress){
-    let value = this.props.autoLogValueWillOnPress();
-    if(value){
-      doEmit(value);
+    let logValue = this.props.autoLogValueWillOnPress();
+    if(logValue){
+      doEmit(logValue);
           return;
     }
     }
@@ -741,12 +741,29 @@ var TouchableMixin = {
     var isValidText = function(item){
       if(item && item.type && item.type.displayName === 'Text' && item.props.children && item.props.children != ''){
         let value = item.props.children;
-        if(value.constructor == Number || (value.constructor == String && /^\d*$/.test(value))){
+    if(value.constructor === Array){
+      //handel text combine
+      let textValue = '';
+      value.forEach((theValue) => {
+        if(theValue){
+          if(theValue.constructor === String || theValue.constructor === Number){
+            textValue += theValue;
+          }else if (theValue.constructor === Object) {
+            let childrenTextValue = isValidText(theValue);
+            if(childrenTextValue){
+              textValue += childrenTextValue;
+            }
+          }
+        }
+      });
+      return /^\d*$/.test(textValue) ? false : textValue;
+    }
+        if(value.constructor === Number || (value.constructor === String && /^\d*$/.test(value))){
           //数字，视作无效value
           console.log('点击事件捕获无效文案：' + value);
           return false;
         }
-        return true;
+        return value;
       }
       return false;
     }
@@ -763,9 +780,10 @@ var TouchableMixin = {
     var searchTitleOrImage = function(theChildren) {
       if(theChildren.constructor === Array){
         for (var i = 0; i < theChildren.length; i++) {
-          var item = theChildren[i];
-          if(isValidText(item)){
-            doEmit({value: item.props.children})
+          let item = theChildren[i];
+      let textValue = isValidText(item);
+          if(textValue){
+            doEmit({value: textValue})
             return true;
           }
           if(isValidViewWithChildren(item)){
@@ -773,9 +791,9 @@ var TouchableMixin = {
           }
         }
       }else {
-        if(isValidText(theChildren)){
-          let value = theChildren.props.children;
-          doEmit({value: theChildren.props.children});
+    let textValue = isValidText(theChildren);
+        if(textValue){
+          doEmit({value: textValue});
           return true;
         }
 
