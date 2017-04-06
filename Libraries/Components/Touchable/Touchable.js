@@ -778,7 +778,7 @@ var TouchableMixin = {
     }
 
     var searchTitleOrImage = function(theChildren) {
-      if(theChildren.constructor === Array){
+      if(theChildren && theChildren.constructor === Array){
         for (var i = 0; i < theChildren.length; i++) {
           let item = theChildren[i];
       let textValue = isValidText(item);
