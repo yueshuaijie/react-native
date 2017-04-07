@@ -13,6 +13,8 @@ const path = require('path');
 const Promise = require('promise');
 const saveAssets = require('./saveAssets');
 const Server = require('../../packager/react-packager/src/Server');
+const path = require('path');
+const fs = require('fs');
 
 function saveBundle(output, bundle, args) {
   return Promise.resolve(
@@ -47,6 +49,37 @@ function buildBundle(args, config, output = outputBundle, packagerInstance) {
       nonPersistent: true,
       resetCache: args['reset-cache'],
     };
+
+	//notice that 0.42 change react-packager route and prelude content
+	let writeContent = args.dev ? 'global.__DEV__ = false;\n' : 'global.__DEV__ = true;\n' +
+						'global.__BUNDLE_START_TIME__ = Date.now();\n';
+
+	if (args.version) {
+		 global.__BUNDLE_VERSION__ = args.version;
+		 writeContent += "global.__BUNDLE_VERSION__ = '" + global.__BUNDLE_VERSION__ +"';\n";
+	}
+	if (args.name) {
+		global.__BUNDLE_NAME__ = args.name;
+		writeContent += "global.__BUNDLE_NAME__ = '" + global.__BUNDLE_NAME__ +"';\n";
+	}
+	global.__BUNDLE_BUILD__ = Date.now();
+
+	writeContent += 'global.__BUNDLE_BUILD__ = ' + global.__BUNDLE_BUILD__ +';\n';
+
+	const prelude = args.dev
+		? path.join('/' + process.cwd(), 'node_modules/react-native/packager/react-packager/src/Resolver/polyfills/prelude_dev.js')
+		: path.join('/' + process.cwd(), 'node_modules/react-native/packager/react-packager/src/Resolver/polyfills/prelude.js');
+
+
+	console.log('prelude:---',prelude);
+	console.log('writeContent:---\n',writeContent);
+	fs.writeFile(prelude, writeContent, function (err) {
+  		if (err) {
+			console.log('write error----',err);
+			throw err
+		};
+  		console.log('success write!');
+	});
 
     const requestOpts = {
       entryFile: args['entry-file'],
