@@ -51,7 +51,7 @@ function buildBundle(args, config, output = outputBundle, packagerInstance) {
     };
 
 	//notice that 0.42 change react-packager route and prelude content
-	let writeContent = args.dev ? 'global.__DEV__ = false;\n' : 'global.__DEV__ = true;\n' +
+	let writeContent = args.dev ? 'global.__DEV__ = true;\n' : 'global.__DEV__ = false;\n' +
 						'global.__BUNDLE_START_TIME__ = Date.now();\n';
 
 	if (args.version) {
