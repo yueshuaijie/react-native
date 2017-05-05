@@ -22,6 +22,10 @@
 
 static const NSUInteger RCTMaxCachableDecodedImageSizeInBytes = 1048576; // 1MB
 
+static const NSUInteger RCTCleanImgCacheSinceNow = 60 * 60 * 24 * 7;//清除7天的缓存
+
+static const NSUInteger RCTImgRetrySinceNow = 60 * 10;//404图片10min重试
+
 static NSString *RCTCacheKeyForImage(NSString *imageTag, CGSize size,
                                      CGFloat scale, RCTResizeMode resizeMode)
 {
@@ -397,6 +401,14 @@ static UIImage *RCTResizeImageIfNeeded(UIImage *image,
     while (cachedResponse) {
       if ([cachedResponse.response isKindOfClass:[NSHTTPURLResponse class]]) {
         NSHTTPURLResponse *httpResponse = (NSHTTPURLResponse *)cachedResponse.response;
+        if (cachedResponse.userInfo && cachedResponse.userInfo[@"cachedDate"]) {
+            NSTimeInterval duration = [[NSDate date] timeIntervalSinceDate:cachedResponse.userInfo[@"cachedDate"]];
+            if (duration > RCTCleanImgCacheSinceNow || (httpResponse.statusCode == 404 && duration > RCTImgRetrySinceNow)) {
+                NSLog(@"remove cached request:---%@,duration:----%.2f,statusCode:---%d", request.URL, duration, httpResponse.statusCode);
+                break;
+            }
+        }
+
         if (httpResponse.statusCode == 301 || httpResponse.statusCode == 302) {
           NSString *location = httpResponse.allHeaderFields[@"Location"];
           if (location == nil) {
@@ -428,10 +440,12 @@ static UIImage *RCTResizeImageIfNeeded(UIImage *image,
         // Cache the response
         // TODO: move URL cache out of RCTImageLoader into its own module
         BOOL isHTTPRequest = [request.URL.scheme hasPrefix:@"http"];
+        NSMutableDictionary *userInfo = isHTTPRequest ? @{@"cachedDate" : [NSDate date]} : @{};
+
         [strongSelf->_URLCache storeCachedResponse:
          [[NSCachedURLResponse alloc] initWithResponse:response
                                                   data:data
-                                              userInfo:nil
+                                              userInfo:userInfo
                                          storagePolicy:isHTTPRequest ? NSURLCacheStorageAllowed: NSURLCacheStorageAllowedInMemoryOnly]
                                         forRequest:request];
         // Process image data
