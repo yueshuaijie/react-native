@@ -450,8 +450,8 @@ static UIImage *RCTResizeImageIfNeeded(UIImage *image,
 
          if (isHTTPRequest && [response isMemberOfClass:NSClassFromString(@"NSHTTPURLResponse")])
          {
-             if ([(NSHTTPURLResponse *)response statusCode] == 200) {
-                 [[NSNotificationCenter defaultCenter] postNotificationName:RCTImgError object:@{@"url":[request.URL absoluteString], @"info":@"404"}];
+             if ([(NSHTTPURLResponse *)response statusCode] >= 300) {
+                 [[NSNotificationCenter defaultCenter] postNotificationName:RCTImgError object:@{@"url":[request.URL absoluteString], @"info":[NSString stringWithFormat:@"%d", [(NSHTTPURLResponse *)response statusCode]]}];
              }
          }
 
