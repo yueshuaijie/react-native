@@ -26,6 +26,8 @@ static const NSUInteger RCTCleanImgCacheSinceNow = 60 * 60 * 24 * 7;//清除7天
 
 static const NSUInteger RCTImgRetrySinceNow = 60 * 10;//404图片10min重试
 
+NSString * const RCTImgError = @"RCTImgError";
+
 static NSString *RCTCacheKeyForImage(NSString *imageTag, CGSize size,
                                      CGFloat scale, RCTResizeMode resizeMode)
 {
@@ -434,6 +436,7 @@ static UIImage *RCTResizeImageIfNeeded(UIImage *image,
     RCTNetworkTask *task = [_bridge.networking networkTaskWithRequest:request completionBlock:^(NSURLResponse *response, NSData *data, NSError *error) {
       if (error) {
         completionHandler(error, nil);
+        [[NSNotificationCenter defaultCenter] postNotificationName:RCTImgError object:@{@"url":[request.URL absoluteString], @"info":[error localizedDescription]}];
         [weakSelf dequeueTasks];
         return;
       }
@@ -445,6 +448,14 @@ static UIImage *RCTResizeImageIfNeeded(UIImage *image,
         BOOL isHTTPRequest = [request.URL.scheme hasPrefix:@"http"];
         NSMutableDictionary *userInfo = isHTTPRequest ? @{@"cachedDate" : [NSDate date]} : @{};
 
+         if (isHTTPRequest && [response isMemberOfClass:NSClassFromString(@"NSHTTPURLResponse")])
+         {
+             if ([(NSHTTPURLResponse *)response statusCode] == 200) {
+                 [[NSNotificationCenter defaultCenter] postNotificationName:RCTImgError object:@{@"url":[request.URL absoluteString], @"info":@"404"}];
+             }
+         }
+
+          
         [strongSelf->_URLCache storeCachedResponse:
          [[NSCachedURLResponse alloc] initWithResponse:response
                                                   data:data
