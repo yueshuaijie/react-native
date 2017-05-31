@@ -453,13 +453,13 @@ var WebView = React.createClass({
    * document.addEventListener('message', e => { document.title = e.data; });
    * ```
    */
-  postMessage = (data) => {
+  postMessage: function(data) {
     UIManager.dispatchViewManagerCommand(
       this.getWebViewHandle(),
       UIManager.RCTWebView.Commands.postMessage,
       [String(data)]
     );
-  };
+  },
 
   /**
   * Injects a javascript string into the referenced WebView. Deliberately does not
@@ -467,13 +467,13 @@ var WebView = React.createClass({
   * on pages with a Content Security Policy that disallows eval(). If you need that
   * functionality, look into postMessage/onMessage.
   */
-  injectJavaScript = (data) => {
+  injectJavaScript: function(data) {
     UIManager.dispatchViewManagerCommand(
       this.getWebViewHandle(),
       UIManager.RCTWebView.Commands.injectJavaScript,
       [data]
     );
-  };
+  },
 
   /**
    * We return an event with a bunch of fields including:
@@ -521,11 +521,11 @@ var WebView = React.createClass({
     this._updateNavigationState(event);
   },
 
-  _onMessage = (event: Event) => {
+  _onMessage: function(event: Event)  {
     var {onMessage} = this.props;
     onMessage && onMessage(event);
-  }
-}
+  },
+});
 
 var RCTWebView = requireNativeComponent('RCTWebView', WebView, {
   nativeOnly: {
