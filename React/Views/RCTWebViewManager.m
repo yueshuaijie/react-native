@@ -143,8 +143,8 @@ shouldStartLoadForRequest:(NSMutableDictionary<NSString *, id> *)request
   } else {
     RCTLogWarn(@"Did not receive response to shouldStartLoad in time, defaulting to YES");
     NSString *url = request[@"url"];
-    if ([url rangeOfString:@"native_call"].location != NSNotFound) {
-        return NO;
+    if ([url rangeOfString:@"native_call"].location != NSNotFound || [url rangeOfString:@"inner_action"].location != NSNotFound) {
+      return NO;
     }
     return YES;
   }
