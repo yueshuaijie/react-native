@@ -1,6 +1,6 @@
 {
   "name": "react-native",
-  "version": "0.43.0",
+  "version": "0.43.5",
   "description": "A framework for building native apps using React",
   "license": "BSD-3-Clause",
   "repository": {
@@ -185,9 +185,6 @@
     "optimist": "^0.6.1",
     "plist": "^1.2.0",
     "promise": "^7.1.1",
-    "react-addons-create-fragment": "15.5.0-alpha.0",
-    "react-addons-pure-render-mixin": "15.5.0-alpha.0",
-    "react-addons-shallow-compare": "15.5.0-alpha.0",
     "react-clone-referenced-element": "^1.0.1",
     "react-devtools-core": "^2.0.8",
     "react-timer-mixin": "^0.13.2",
