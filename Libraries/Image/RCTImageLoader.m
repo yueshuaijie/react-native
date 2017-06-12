@@ -407,6 +407,9 @@ static UIImage *RCTResizeImageIfNeeded(UIImage *image,
             NSTimeInterval duration = [[NSDate date] timeIntervalSinceDate:cachedResponse.userInfo[@"cachedDate"]];
             if (duration > RCTCleanImgCacheSinceNow || (httpResponse.statusCode == 404 && duration > RCTImgRetrySinceNow)) {
                 NSLog(@"remove cached request:---%@,duration:----%.2f,statusCode:---%d", request.URL, duration, httpResponse.statusCode);
+                NSMutableURLRequest *mutableRequest = [request mutableCopy];
+                mutableRequest.cachePolicy = NSURLRequestReloadIgnoringLocalCacheData;
+                request = mutableRequest;
                 break;
             }
         }
