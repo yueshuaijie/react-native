@@ -404,6 +404,10 @@ RCT_NOT_IMPLEMENTED(- (instancetype)init)
     _cachedChildFrames = [NSMutableArray new];
 
     _scrollListeners = [NSHashTable weakObjectsHashTable];
+      
+    if (@available(iOS 11.0, *)) {
+      _scrollView.contentInsetAdjustmentBehavior = UIScrollViewContentInsetAdjustmentNever;
+    }
 
     [self addSubview:_scrollView];
   }
