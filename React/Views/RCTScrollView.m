@@ -405,8 +405,10 @@ RCT_NOT_IMPLEMENTED(- (instancetype)init)
 
     _scrollListeners = [NSHashTable weakObjectsHashTable];
       
-    if (@available(iOS 11.0, *)) {
-      _scrollView.contentInsetAdjustmentBehavior = UIScrollViewContentInsetAdjustmentNever;
+    if ([[UIDevice currentDevice].systemVersion compare:@"11.0"] != NSOrderedAscending) {
+        if ([_scrollView respondsToSelector:NSSelectorFromString(@"setContentInsetAdjustmentBehavior:")]) {
+            [_scrollView performSelector:NSSelectorFromString(@"setContentInsetAdjustmentBehavior:") withObject:@2];
+        }
     }
 
     [self addSubview:_scrollView];
