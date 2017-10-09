@@ -53,7 +53,7 @@ RCT_EXPORT_MODULE()
 continueUserActivity:(NSUserActivity *)userActivity
   restorationHandler:(void (^)(NSArray *))restorationHandler
 {
-  if ([userActivity.activityType isEqualToString:NSUserActivityTypeBrowsingWeb]) {
+  if ([userActivity.activityType isEqualToString:@"NSUserActivityTypeBrowsingWeb"]) {
     NSDictionary *payload = @{@"url": userActivity.webpageURL.absoluteString};
     [[NSNotificationCenter defaultCenter] postNotificationName:RCTOpenURLNotification
                                                         object:self
@@ -110,7 +110,7 @@ RCT_EXPORT_METHOD(getInitialURL:(RCTPromiseResolveBlock)resolve
     NSDictionary *userActivityDictionary =
       self.bridge.launchOptions[UIApplicationLaunchOptionsUserActivityDictionaryKey];
 
-    if ([userActivityDictionary[UIApplicationLaunchOptionsUserActivityTypeKey] isEqual:NSUserActivityTypeBrowsingWeb]) {
+    if ([userActivityDictionary[UIApplicationLaunchOptionsUserActivityTypeKey] isEqual:@"NSUserActivityTypeBrowsingWeb"]) {
       initialURL = ((NSUserActivity *)userActivityDictionary[@"UIApplicationLaunchOptionsUserActivityKey"]).webpageURL;
     }
   }
