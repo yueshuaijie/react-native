@@ -194,18 +194,6 @@ RCT_NOT_IMPLEMENTED(- (instancetype)initWithCoder:(NSCoder *)aDecoder)
     };
   });
 
-    if (![request[@"url"] hasPrefix:@"http"] && ![request[@"url"] hasPrefix:@"https"]) {
-        NSArray *schemeArray = [[NSBundle mainBundle] infoDictionary] [@"LSApplicationQueriesSchemes"];
-        for (NSString * scheme in schemeArray) {
-            if ([request[@"url"] hasPrefix:[NSString stringWithFormat:@"%@://", scheme]]) {
-                if ([[UIApplication sharedApplication] canOpenURL:[NSURL URLWithString:request[@"url"]]]) {
-                    return YES;
-                } else {
-                    return NO;
-                }
-            }
-        }
-    }
 
   // skip this for the JS Navigation handler
   if (!isJSNavigation && _onShouldStartLoadWithRequest) {
