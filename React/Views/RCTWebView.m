@@ -209,6 +209,20 @@ RCT_NOT_IMPLEMENTED(- (instancetype)initWithCoder:(NSCoder *)aDecoder)
     }
   }
 
+    NSString *requestUrl = [request.URL absoluteString];
+    if (![requestUrl hasPrefix:@"http"] && ![requestUrl hasPrefix:@"https"]) {
+        NSArray *schemeArray = [[NSBundle mainBundle] infoDictionary] [@"LSApplicationQueriesSchemes"];
+        for (NSString * scheme in schemeArray) {
+            if ([requestUrl hasPrefix:[NSString stringWithFormat:@"%@://", scheme]]) {
+                if ([[UIApplication sharedApplication] canOpenURL:[NSURL URLWithString:requestUrl]]) {
+                    return YES;
+                } else {
+                    return NO;
+                }
+            }
+        }
+    }
+
   if (_onLoadingStart) {
     // We have this check to filter out iframe requests and whatnot
     BOOL isTopFrame = [request.URL isEqual:request.mainDocumentURL];
