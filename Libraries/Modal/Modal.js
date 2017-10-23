@@ -142,7 +142,7 @@ class Modal extends React.Component {
         onRequestClose={this.props.onRequestClose}
         onShow={this.props.onShow}
         style={styles.modal}
-        onStartShouldSetResponder={this._shouldSetResponder}
+        onStartShouldSetResponder={this._shouldSetResponder.bind(this)}
         >
         <View style={[styles.container, containerStyles]}>
           {this.props.children}
