@@ -151,9 +151,9 @@ class Modal extends React.Component {
     );
   }
 
-  // We don't want any responder events bubbling out of the modal.
+  // We don't want any responder events bubbling out of the modal， unless user define it's value
   _shouldSetResponder(): boolean {
-    return true;
+    return this.props.onStartShouldSetResponder != undefined ? this.props.onStartShouldSetResponder : true;
   }
 }
 
