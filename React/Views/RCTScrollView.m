@@ -141,6 +141,7 @@ RCT_NOT_IMPLEMENTED(- (instancetype)init)
 @property (nonatomic, copy) NSIndexSet *stickyHeaderIndices;
 @property (nonatomic, assign) BOOL centerContent;
 @property (nonatomic, strong) RCTRefreshControl *rctRefreshControl;
+@property (nonatomic, assign) BOOL endBounces;
 
 @end
 
@@ -625,6 +626,11 @@ RCT_SCROLL_EVENT_HANDLER(scrollViewDidZoom, onScroll)
 {
   [_scrollView dockClosestSectionHeader];
   [self updateClippedSubviews];
+
+  // 只支持底部的bounces
+  if (_scrollView.endBounces) {
+    _scrollView.bounces = (scrollView.contentOffset.y <= 0) ? NO : YES;
+  }
 
   NSTimeInterval now = CACurrentMediaTime();
 
