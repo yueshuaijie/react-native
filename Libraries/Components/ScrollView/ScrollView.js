@@ -75,6 +75,7 @@ const ScrollView = React.createClass({
      * @platform ios
      */
     bounces: PropTypes.bool,
+    endBounces: PropTypes.bool,
     /**
      * When true, gestures can drive zoom past min/max and the zoom will animate
      * to the min/max value at gesture end, otherwise the zoom will not exceed
