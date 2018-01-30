@@ -403,9 +403,31 @@ RCT_EXPORT_MODULE()
       if (!incrementalUpdates) {
         [self sendData:data forTask:task];
       }
+      NSStringEncoding encoding = NSUTF8StringEncoding;
+      if (response.textEncodingName) {
+          CFStringEncoding cfEncoding = CFStringConvertIANACharSetNameToEncoding((CFStringRef)response.textEncodingName);
+          encoding = CFStringConvertEncodingToNSStringEncoding(cfEncoding);
+      }
+
+      NSString *responseText = [[NSString alloc] initWithData:data encoding:encoding];
+
+      if (!responseText && data.length) {
+
+          // We don't have an encoding, or the encoding is incorrect, so now we
+          // try to guess (unfortunately, this feature is available in iOS 8+ only)
+          if ([NSString respondsToSelector:@selector(stringEncodingForData:
+                                                     encodingOptions:
+                                                     convertedString:
+                                                     usedLossyConversion:)]) {
+              NSDictionary *options = @{ NSStringEncodingDetectionSuggestedEncodingsKey: @[@(NSUTF8StringEncoding)], };
+              [NSString stringEncodingForData:data encodingOptions:options convertedString:&responseText usedLossyConversion:NULL];
+          }
+      }
+
       NSArray *responseJSON = @[task.requestID,
                                 RCTNullIfNil(error.localizedDescription),
-                                error.code == kCFURLErrorTimedOut ? @YES : @NO
+                                error.code == kCFURLErrorTimedOut ? @YES : @NO,
+                                responseText
                                 ];
 
       [self sendEventWithName:@"didCompleteNetworkResponse" body:responseJSON];

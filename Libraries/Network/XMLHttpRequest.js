@@ -262,11 +262,11 @@ class XMLHttpRequest extends EventTarget(...XHR_EVENTS) {
 
   __didReceiveData(requestId: number, responseText: string): void {
     if (requestId === this._requestId) {
-      if (!this._responseText) {
-        this._responseText = responseText;
-      } else {
-        this._responseText += responseText;
-      }
+      // if (!this._responseText) {
+      //   this._responseText = responseText;
+      // } else {
+      //   this._responseText += responseText;
+      // }
       this._cachedResponse = undefined; // force lazy recomputation
       this.setReadyState(this.LOADING);
     }
@@ -276,7 +276,8 @@ class XMLHttpRequest extends EventTarget(...XHR_EVENTS) {
   __didCompleteResponse(
     requestId: number,
     error: string,
-    timeOutError: boolean
+    timeOutError: boolean,
+    responseText: string,
   ): void {
     if (requestId === this._requestId) {
       if (error) {
@@ -285,7 +286,10 @@ class XMLHttpRequest extends EventTarget(...XHR_EVENTS) {
         if (timeOutError) {
           this._timedOut = true;
         }
+      } else {
+        this._responseText = responseText;
       }
+      
       this._clearSubscriptions();
       this._requestId = null;
       this.setReadyState(this.DONE);
