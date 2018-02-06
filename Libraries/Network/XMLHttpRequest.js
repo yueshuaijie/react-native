@@ -91,6 +91,8 @@ class XMLHttpRequest extends EventTarget(...XHR_EVENTS) {
 
   upload: XMLHttpRequestEventTarget = new XMLHttpRequestEventTarget();
 
+  disableIncremental: boolean = false;
+
   _requestId: ?number;
   _subscriptions: [any];
 
@@ -384,7 +386,12 @@ class XMLHttpRequest extends EventTarget(...XHR_EVENTS) {
       throw new Error('Request has already been sent');
     }
     this._sent = true;
-    const incrementalEvents = this._incrementalEvents || !!this.onreadystatechange;
+    let incrementalEvents;
+    if (this.disableIncremental) {
+      incrementalEvents = false;
+    } else {
+      incrementalEvents = this._incrementalEvents || !!this.onreadystatechange;
+    }
     this.sendImpl(
       this._method,
       this._url,
