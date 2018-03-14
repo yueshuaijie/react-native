@@ -58,6 +58,14 @@
 @property (nonatomic, copy) RCTDirectEventBlock onMomentumScrollEnd;
 @property (nonatomic, copy) RCTDirectEventBlock onScrollAnimationEnd;
 
+// NOTE: refresh props
+@property (nonatomic, copy) RCTDirectEventBlock onLoadRefreshingAction;
+@property (nonatomic, assign) BOOL enablePullToRefresh;
+@property (nonatomic, assign) BOOL isOnPullToRefresh;
+@property (nonatomic, assign) BOOL currentRefreshingState;
+- (void)startPullToRefresh;
+- (void)stopPullToRefresh;
+
 @end
 
 @interface RCTEventDispatcher (RCTScrollView)

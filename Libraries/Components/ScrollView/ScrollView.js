@@ -29,6 +29,7 @@ const invariant = require('fbjs/lib/invariant');
 const processDecelerationRate = require('processDecelerationRate');
 const PropTypes = React.PropTypes;
 const requireNativeComponent = require('requireNativeComponent');
+const RCTScrollViewManager = require('NativeModules').ScrollViewManager;
 
 /**
  * Component that wraps platform ScrollView while providing
@@ -327,6 +328,24 @@ const ScrollView = React.createClass({
      * @platform android
      */
     scrollPerfTag: PropTypes.string,
+
+    /**
+     * When true, shows a pull-to-refresh animation
+     * @platform iOS
+     */
+    enablePullToRefresh: PropTypes.bool,
+
+    /**
+     * Prop determines to begin or end pull-to-refresh
+     * @platform iOS
+     */
+    isOnPullToRefresh: PropTypes.bool,
+
+    /**
+     * Action of pull-to-refresh
+     * @platform iOS
+     */
+    onLoadRefreshingAction: PropTypes.func,
   },
 
   mixins: [ScrollResponder.Mixin],
@@ -379,6 +398,20 @@ const ScrollView = React.createClass({
       ({x, y, animated} = y || {});
     }
     this.getScrollResponder().scrollResponderScrollTo({x: x || 0, y: y || 0, animated: animated !== false});
+  },
+
+  /**
+   * Begin pull-to-refresh
+   */
+  startPullToRefresh: function() {
+    RCTScrollViewManager.startPullToRefresh(ReactNative.findNodeHandle(this));
+  },
+
+  /**
+   * Stop pull-to-refresh
+   */
+  stopPullToRefresh: function() {
+    RCTScrollViewManager.stopPullToRefresh(ReactNative.findNodeHandle(this));
   },
 
   /**
