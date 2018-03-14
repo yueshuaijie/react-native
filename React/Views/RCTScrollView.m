@@ -20,6 +20,8 @@
 #import "UIView+Private.h"
 #import "UIView+React.h"
 
+#import "CBGRefreshHeader.h"
+
 CGFloat const ZINDEX_DEFAULT = 0;
 CGFloat const ZINDEX_STICKY_HEADER = 50;
 
@@ -569,6 +571,52 @@ RCT_NOT_IMPLEMENTED(- (instancetype)initWithCoder:(NSCoder *)aDecoder)
   [RCTView autoAdjustInsetsForView:self
                     withScrollView:_scrollView
                       updateOffset:YES];
+}
+
+#pragma mark Refresh API
+- (void)setEnablePullToRefresh:(BOOL)enablePullToRefresh
+{
+    _enablePullToRefresh = enablePullToRefresh;
+    if (enablePullToRefresh) {
+        if (_scrollView.mj_header == nil) {
+            _scrollView.mj_header = [CBGRefreshHeader headerWithRefreshingTarget:self refreshingAction:@selector(refreshAction)];
+            _currentRefreshingState = NO;
+        }
+    } else {
+        _scrollView.mj_header = nil;
+        _currentRefreshingState = NO;
+    }
+}
+
+- (void)setIsOnPullToRefresh:(BOOL)isOnPullToRefresh
+{
+    if (_currentRefreshingState != isOnPullToRefresh) {
+        _currentRefreshingState = isOnPullToRefresh;
+        if (isOnPullToRefresh) {
+            [_scrollView.mj_header beginRefreshing];
+        } else {
+            [_scrollView.mj_header endRefreshing];
+        }
+    }
+}
+
+- (void)startPullToRefresh
+{
+    _isOnPullToRefresh = YES;
+    [_scrollView.mj_header beginRefreshing];
+    
+}
+
+- (void)stopPullToRefresh
+{
+    _isOnPullToRefresh = NO;
+    [_scrollView.mj_header endRefreshing];
+}
+
+- (void)refreshAction
+{
+    _currentRefreshingState = _scrollView.mj_header.isRefreshing;
+    !self.onLoadRefreshingAction ? : self.onLoadRefreshingAction(nil);
 }
 
 #pragma mark - ScrollView delegate
