@@ -384,6 +384,8 @@ RCT_NOT_IMPLEMENTED(- (instancetype)init)
   uint16_t _coalescingKey;
   NSString *_lastEmittedEventName;
   NSHashTable *_scrollListeners;
+  CFAbsoluteTime _startRefreshTime;
+  CFAbsoluteTime _endRefreshTime;
 }
 
 @synthesize nativeScrollDelegate = _nativeScrollDelegate;
@@ -593,9 +595,19 @@ RCT_NOT_IMPLEMENTED(- (instancetype)initWithCoder:(NSCoder *)aDecoder)
     if (_currentRefreshingState != isOnPullToRefresh) {
         _currentRefreshingState = isOnPullToRefresh;
         if (isOnPullToRefresh) {
-            [_scrollView.mj_header beginRefreshing];
+            _startRefreshTime = CFAbsoluteTimeGetCurrent();
+            if ([_scrollView.mj_header respondsToSelector:@selector(beginRefreshingNoShouldRefreshingCallback)]) {
+                [_scrollView.mj_header beginRefreshingNoShouldRefreshingCallback];
+            }
         } else {
-            [_scrollView.mj_header endRefreshing];
+            _endRefreshTime = CFAbsoluteTimeGetCurrent();
+            if (_startRefreshTime && (_endRefreshTime - _startRefreshTime) < 500) {
+                dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.25 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+                    [_scrollView.mj_header endRefreshing];
+                });
+            } else {
+                [_scrollView.mj_header endRefreshing];
+            }
         }
     }
 }
