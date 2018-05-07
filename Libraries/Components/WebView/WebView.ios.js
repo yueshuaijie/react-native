@@ -280,6 +280,19 @@ var WebView = React.createClass({
     onShouldStartLoadWithRequest: PropTypes.func,
 
     /**
+     * Sets the contatiner index for the `WebView`. suit for onLoadingHeightChanged
+     * @platform ios
+     */
+    contatinerIndex: PropTypes.number,
+
+    /**
+     * Function that allows custom handling height change of web view.
+     * to stop loading.
+     * @platform ios
+     */
+    onLoadingHeightChanged: PropTypes.func,
+
+    /**
      * Boolean that determines whether HTML5 videos play inline or use the
      * native full-screen controller. The default value is `false`.
      *
@@ -346,6 +359,10 @@ var WebView = React.createClass({
       RCTWebViewManager.startLoadWithResult(!!shouldStart, event.nativeEvent.lockIdentifier);
     });
 
+    var onLoadingHeightChanged = this.props.onLoadingHeightChanged && ((event: Event) => {
+      this.props.onLoadingHeightChanged && this.props.onLoadingHeightChanged(event.nativeEvent);
+    });
+
     var decelerationRate = processDecelerationRate(this.props.decelerationRate);
 
     var source = this.props.source || {};
@@ -371,6 +388,8 @@ var WebView = React.createClass({
         onLoadingFinish={this._onLoadingFinish}
         onLoadingError={this._onLoadingError}
         onShouldStartLoadWithRequest={onShouldStartLoadWithRequest}
+        onLoadingHeightChanged={onLoadingHeightChanged}
+        contatinerIndex={this.props.contatinerIndex}
         scalesPageToFit={this.props.scalesPageToFit}
         allowsInlineMediaPlayback={this.props.allowsInlineMediaPlayback}
         mediaPlaybackRequiresUserAction={this.props.mediaPlaybackRequiresUserAction}
