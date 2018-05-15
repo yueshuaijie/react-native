@@ -82,6 +82,13 @@ RCT_NOT_IMPLEMENTED(- (instancetype)initWithCoder:(NSCoder *)aDecoder)
   [_webView stopLoading];
 }
 
+- (void)canGoBack:(RCTResponseSenderBlock)callback {
+    if (callback) {
+        callback(@[@([_webView canGoBack])]);
+    }
+}
+
+
 - (void)setSource:(NSDictionary *)source
 {
   if (![_source isEqualToDictionary:source]) {

@@ -97,6 +97,19 @@ RCT_EXPORT_METHOD(stopLoading:(nonnull NSNumber *)reactTag)
   }];
 }
 
+RCT_EXPORT_METHOD(canGoBack:(nonnull NSNumber *)reactTag callback:(RCTResponseSenderBlock)callback)
+{
+    [self.bridge.uiManager addUIBlock:^(__unused RCTUIManager *uiManager, NSDictionary<NSNumber *, RCTWebView *> *viewRegistry) {
+        RCTWebView *view = viewRegistry[reactTag];
+        if (![view isKindOfClass:[RCTWebView class]]) {
+            RCTLogError(@"Invalid view returned from registry, expecting RCTWebView, got: %@", view);
+        } else {
+            [view canGoBack:callback];
+        }
+    }];
+}
+
+
 #pragma mark - Exported synchronous methods
 
 - (BOOL)webView:(__unused RCTWebView *)webView

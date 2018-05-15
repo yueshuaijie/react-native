@@ -429,6 +429,14 @@ var WebView = React.createClass({
     );
   },
 
+  canGoBack: function(callback) {
+    RCTWebViewManager && RCTWebViewManager.canGoBack &&
+      RCTWebViewManager.canGoBack(
+        this.getWebViewHandle(),
+        callback,
+      );
+  },
+
   /**
    * We return an event with a bunch of fields including:
    *  url, title, loading, canGoBack, canGoForward

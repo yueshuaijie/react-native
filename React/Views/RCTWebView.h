@@ -8,6 +8,7 @@
  */
 
 #import "RCTView.h"
+#import "RCTBridge.h"
 
 @class RCTWebView;
 
@@ -41,5 +42,6 @@ shouldStartLoadForRequest:(NSMutableDictionary<NSString *, id> *)request
 - (void)goBack;
 - (void)reload;
 - (void)stopLoading;
+- (void)canGoBack:(RCTResponseSenderBlock)callback;
 
 @end
