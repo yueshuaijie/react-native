@@ -140,4 +140,8 @@ RCT_NOT_IMPLEMENTED(- (instancetype)initWithCoder:coder)
   _modalViewController.modalPresentationStyle = transparent ? UIModalPresentationCustom : UIModalPresentationFullScreen;
 }
 
+- (BOOL)prefersHomeIndicatorAutoHidden {
+    return YES;
+}
+
 @end
