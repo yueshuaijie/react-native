@@ -30,34 +30,56 @@ RCT_EXPORT_MODULE()
 
 - (BOOL)textField:(RCTTextField *)textField shouldChangeCharactersInRange:(NSRange)range replacementString:(NSString *)string
 {
-  // Only allow single keypresses for onKeyPress, pasted text will not be sent.
-  if (textField.textWasPasted) {
-    textField.textWasPasted = NO;
-  } else {
-    [textField sendKeyValueForString:string];
-  }
-
-  if (textField.maxLength == nil || [string isEqualToString:@"\n"]) {  // Make sure forms can be submitted via return
-    return YES;
-  }
-  NSUInteger allowedLength = textField.maxLength.integerValue - textField.text.length + range.length;
-  if (string.length > allowedLength) {
-    if (string.length > 1) {
-      // Truncate the input string so the result is exactly maxLength
-      NSString *limitedString = [string substringToIndex:allowedLength];
-      NSMutableString *newString = textField.text.mutableCopy;
-      [newString replaceCharactersInRange:range withString:limitedString];
-      textField.text = newString;
-      // Collapse selection at end of insert to match normal paste behavior
-      UITextPosition *insertEnd = [textField positionFromPosition:textField.beginningOfDocument
-                                                          offset:(range.location + allowedLength)];
-      textField.selectedTextRange = [textField textRangeFromPosition:insertEnd toPosition:insertEnd];
-      [textField textFieldDidChange];
+    // Only allow single keypresses for onKeyPress, pasted text will not be sent.
+    if (textField.textWasPasted) {
+        textField.textWasPasted = NO;
+    } else {
+        [textField sendKeyValueForString:string];
     }
-    return NO;
-  } else {
-    return YES;
-  }
+    
+    if (textField.maxLength == nil || [string isEqualToString:@"\n"]) {  // Make sure forms can be submitted via return
+        if (textField.isPureNumber && (UIKeyboardTypeDecimalPad == textField.keyboardType || UIKeyboardTypeNumberPad == textField.keyboardType)) {
+            return [self validateNumber:string withDot:UIKeyboardTypeDecimalPad == textField.keyboardType];
+        }
+        return YES;
+    }
+    NSUInteger allowedLength = textField.maxLength.integerValue - textField.text.length + range.length;
+    if (string.length > allowedLength) {
+        if (string.length > 1) {
+            // Truncate the input string so the result is exactly maxLength
+            NSString *limitedString = [string substringToIndex:allowedLength];
+            NSMutableString *newString = textField.text.mutableCopy;
+            [newString replaceCharactersInRange:range withString:limitedString];
+            textField.text = newString;
+            // Collapse selection at end of insert to match normal paste behavior
+            UITextPosition *insertEnd = [textField positionFromPosition:textField.beginningOfDocument
+                                                                 offset:(range.location + allowedLength)];
+            textField.selectedTextRange = [textField textRangeFromPosition:insertEnd toPosition:insertEnd];
+            [textField textFieldDidChange];
+        }
+        return NO;
+    } else {
+        if (textField.isPureNumber && (UIKeyboardTypeDecimalPad == textField.keyboardType || UIKeyboardTypeNumberPad == textField.keyboardType)) {
+            return [self validateNumber:string withDot:UIKeyboardTypeDecimalPad == textField.keyboardType];
+        }
+        return YES;
+    }
+}
+
+- (BOOL)validateNumber:(NSString*)number withDot:(BOOL)dot{
+    BOOL res = YES;
+    NSCharacterSet* tmpSet = [NSCharacterSet characterSetWithCharactersInString:dot ? @".0123456789" : @"0123456789"];
+    int i = 0;
+    while (i < number.length) {
+        NSString * string = [number substringWithRange:NSMakeRange(i, 1)];
+        NSRange range = [string rangeOfCharacterFromSet:tmpSet];
+        if (range.length == 0) {
+            res = NO;
+            break;
+        }
+        i++;
+    }
+    return res;
 }
 
 // This method allows us to detect a `Backspace` keyPress
@@ -90,6 +112,7 @@ RCT_EXPORT_VIEW_PROPERTY(onSelectionChange, RCTDirectEventBlock)
 RCT_EXPORT_VIEW_PROPERTY(returnKeyType, UIReturnKeyType)
 RCT_EXPORT_VIEW_PROPERTY(enablesReturnKeyAutomatically, BOOL)
 RCT_EXPORT_VIEW_PROPERTY(secureTextEntry, BOOL)
+RCT_EXPORT_VIEW_PROPERTY(isPureNumber, BOOL)
 RCT_REMAP_VIEW_PROPERTY(password, secureTextEntry, BOOL) // backwards compatibility
 RCT_REMAP_VIEW_PROPERTY(color, textColor, UIColor)
 RCT_REMAP_VIEW_PROPERTY(autoCapitalize, autocapitalizationType, UITextAutocapitalizationType)
