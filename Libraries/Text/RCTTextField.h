@@ -24,6 +24,7 @@
 @property (nonatomic, assign) NSInteger mostRecentEventCount;
 @property (nonatomic, strong) NSNumber *maxLength;
 @property (nonatomic, assign) BOOL textWasPasted;
+@property (nonatomic, assign) BOOL isPureNumber;
 
 @property (nonatomic, copy) RCTDirectEventBlock onSelectionChange;
 
