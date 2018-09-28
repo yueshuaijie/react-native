@@ -33,6 +33,8 @@ var RCTWebViewManager = require('NativeModules').WebViewManager;
 
 var BGWASH = 'rgba(255,255,255,0.8)';
 var RCT_WEBVIEW_REF = 'webview';
+var Dimensions = require('Dimensions');
+var {height, width} =  Dimensions.get('window');
 
 var WebViewState = keyMirror({
   IDLE: null,
@@ -213,6 +215,7 @@ var WebView = React.createClass({
      * @platform ios
      */
     scrollEnabled: PropTypes.bool,
+    quickModel: PropTypes.bool,
     /**
      * Controls whether to adjust the content inset for web views that are
      * placed behind a navigation bar, tab bar, or toolbar. The default value
@@ -323,9 +326,14 @@ var WebView = React.createClass({
 
   render: function() {
     var otherView = null;
+    let loadingView = null;
 
     if (this.state.viewState === WebViewState.LOADING) {
-      otherView = (this.props.renderLoading || defaultRenderLoading)();
+      if (!this.props.quickModel || this.props.renderLoading) {
+        otherView = (this.props.renderLoading || defaultRenderLoading)();
+      } else {
+        loadingView = defaultRenderLoading();
+      }
     } else if (this.state.viewState === WebViewState.ERROR) {
       var errorEvent = this.state.lastErrorEvent;
       invariant(
@@ -344,8 +352,7 @@ var WebView = React.createClass({
     }
 
     var webViewStyles = [styles.container, styles.webView, this.props.style];
-    if (this.state.viewState === WebViewState.LOADING ||
-      this.state.viewState === WebViewState.ERROR) {
+    if (this.state.viewState === WebViewState.ERROR || (this.state.viewState === WebViewState.LOADING && (!this.props.quickModel || this.props.renderLoading))) {
       // if we're in either LOADING or ERROR states, don't show the webView
       webViewStyles.push(styles.hidden);
     }
@@ -394,6 +401,7 @@ var WebView = React.createClass({
       <View style={styles.container}>
         {webView}
         {otherView}
+        {loadingView}
       </View>
     );
   },
@@ -562,11 +570,14 @@ var styles = StyleSheet.create({
     flex: 0, // disable 'flex:1' when hiding a View
   },
   loadingView: {
-    backgroundColor: BGWASH,
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    height: 100,
+    height: 30,
+    width: 30,
+    top: height / 2 - 30,
+    left: width / 2 - 15,
+    position: 'absolute',
   },
   webView: {
     backgroundColor: '#ffffff',
