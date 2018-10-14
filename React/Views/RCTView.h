@@ -102,4 +102,11 @@
  */
 @property (nonatomic, assign) UIEdgeInsets hitTestEdgeInsets;
 
+/**
+ *  Loading Animation Control.
+ *  Image Resource At Assets.
+ */
+
+@property (nonatomic, assign) BOOL showLoadingAnimation;
+
 @end
