@@ -1535,17 +1535,28 @@ RCT_EXPORT_METHOD(clearJSResponder)
 
 static NSDictionary *RCTExportedDimensions(BOOL rotateBounds)
 {
-  RCTAssertMainQueue();
-
-  // Don't use RCTScreenSize since it the interface orientation doesn't apply to it
-  CGRect screenSize = [[UIScreen mainScreen] bounds];
-  return @{
-    @"window": @{
-        @"width": @(rotateBounds ? screenSize.size.height : screenSize.size.width),
-        @"height": @(rotateBounds ? screenSize.size.width : screenSize.size.height),
-        @"scale": @(RCTScreenScale()),
-    },
-  };
+    RCTAssertMainQueue();
+    
+    // Don't use RCTScreenSize since it the interface orientation doesn't apply to it
+    CGRect screenSize = [[UIScreen mainScreen] bounds];
+    BOOL iPhoneXSeries = NO;
+    if (UIDevice.currentDevice.userInterfaceIdiom == UIUserInterfaceIdiomPhone) {
+        if (@available(iOS 11.0, *)) {
+            UIWindow *mainWindow = [[[UIApplication sharedApplication] delegate] window];
+            if (mainWindow.safeAreaInsets.bottom > 0.0) {
+                iPhoneXSeries = YES;
+                
+            }
+        }
+    }
+    return @{
+             @"window": @{
+                     @"width": @(rotateBounds ? screenSize.size.height : screenSize.size.width),
+                     @"height": @(rotateBounds ? screenSize.size.width : screenSize.size.height),
+                     @"scale": @(RCTScreenScale()),
+                     @"iPhoneXSeries": @(iPhoneXSeries),
+                     },
+             };
 }
 
 RCT_EXPORT_METHOD(configureNextLayoutAnimation:(NSDictionary *)config
