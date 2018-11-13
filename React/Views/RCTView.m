@@ -146,7 +146,7 @@ static NSString *RCTRecursiveAccessibilityLabel(UIView *view)
                     [loadingView setTag:TAG_LOADING_IMAGEVIEW];
                     [loadingView startAnimating];
                     UILabel *descLabel = [[UILabel alloc] init];
-                    [descLabel setText:@"加载中"];
+                    [descLabel setText:@"加载中..."];
                     [descLabel setFont:[UIFont systemFontOfSize:14]];
                     [descLabel setTextColor:[UIColor colorWithRed:102/255.0 green:102/255.0 blue:102/255.0 alpha:1.0]];
                     [descLabel sizeToFit];
