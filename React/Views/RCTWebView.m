@@ -257,6 +257,9 @@ RCT_NOT_IMPLEMENTED(- (instancetype)initWithCoder:(NSCoder *)aDecoder)
       // http://stackoverflow.com/questions/1024748/how-do-i-fix-nsurlerrordomain-error-999-in-iphone-3-0-os
       return;
     }
+    if ([error.domain isEqualToString:@"WebKitErrorDomain"] && error.code == 101 && [error.localizedDescription isEqualToString:@"无法显示 URL"]) {
+      return; // 防止跳转第三方APP/APPSTORE等显示加载错误页面
+    }
 
     NSMutableDictionary<NSString *, id> *event = [self baseEvent];
     [event addEntriesFromDictionary:@{
