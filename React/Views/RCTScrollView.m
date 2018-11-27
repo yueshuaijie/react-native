@@ -582,6 +582,7 @@ RCT_NOT_IMPLEMENTED(- (instancetype)initWithCoder:(NSCoder *)aDecoder)
     if (enablePullToRefresh) {
         if (_scrollView.mj_header == nil) {
             _scrollView.mj_header = [CBGRefreshHeader headerWithRefreshingTarget:self refreshingAction:@selector(refreshAction)];
+            _scrollView.mj_header.backgroundColor = _scrollView.superview.backgroundColor;
             _currentRefreshingState = NO;
         }
     } else {
