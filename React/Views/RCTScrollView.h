@@ -63,6 +63,8 @@
 @property (nonatomic, assign) BOOL enablePullToRefresh;
 @property (nonatomic, assign) BOOL isOnPullToRefresh;
 @property (nonatomic, assign) BOOL currentRefreshingState;
+
+@property (nonatomic, assign) BOOL refreshHeaderForceSyncBackgroundColor;
 - (void)startPullToRefresh;
 - (void)stopPullToRefresh;
 

@@ -524,6 +524,7 @@ const ScrollView = React.createClass({
       onResponderRelease: this.scrollResponderHandleResponderRelease,
       onResponderReject: this.scrollResponderHandleResponderReject,
       sendMomentumEvents: (this.props.onMomentumScrollBegin || this.props.onMomentumScrollEnd) ? true : false,
+      refreshHeaderForceSyncBackgroundColor: this.props.refreshHeaderForceSyncBackgroundColor,
     };
 
     const { decelerationRate } = this.props;
@@ -611,6 +612,7 @@ if (Platform.OS === 'android') {
       onMomentumScrollEnd : true,
       onScrollBeginDrag: true,
       onScrollEndDrag: true,
+      refreshHeaderForceSyncBackgroundColor: true,
     }
   };
   RCTScrollView = requireNativeComponent('RCTScrollView', ScrollView, nativeOnlyProps);

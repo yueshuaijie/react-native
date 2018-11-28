@@ -576,13 +576,22 @@ RCT_NOT_IMPLEMENTED(- (instancetype)initWithCoder:(NSCoder *)aDecoder)
 }
 
 #pragma mark Refresh API
+- (void)setRefreshHeaderForceSyncBackgroundColor:(BOOL)refreshHeaderForceSyncBackgroundColor
+{
+    _refreshHeaderForceSyncBackgroundColor = refreshHeaderForceSyncBackgroundColor;
+    if (_scrollView.mj_header && _refreshHeaderForceSyncBackgroundColor) {
+        _scrollView.mj_header.backgroundColor = _scrollView.superview.backgroundColor;
+    }
+}
 - (void)setEnablePullToRefresh:(BOOL)enablePullToRefresh
 {
     _enablePullToRefresh = enablePullToRefresh;
     if (enablePullToRefresh) {
         if (_scrollView.mj_header == nil) {
             _scrollView.mj_header = [CBGRefreshHeader headerWithRefreshingTarget:self refreshingAction:@selector(refreshAction)];
-            _scrollView.mj_header.backgroundColor = _scrollView.superview.backgroundColor;
+            if (_refreshHeaderForceSyncBackgroundColor) {
+                _scrollView.mj_header.backgroundColor = _scrollView.superview.backgroundColor;
+            }
             _currentRefreshingState = NO;
         }
     } else {
