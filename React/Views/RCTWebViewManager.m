@@ -120,6 +120,19 @@ shouldStartLoadForRequest:(NSMutableDictionary<NSString *, id> *)request
   _shouldStartLoad = YES;
   request[@"lockIdentifier"] = @(_shouldStartLoadLock.condition);
     
+  if (![request[@"url"] hasPrefix:@"http"] && ![request[@"url"] hasPrefix:@"https"]) {
+        NSArray *schemeArray = [[NSBundle mainBundle] infoDictionary] [@"LSApplicationQueriesSchemes"];
+        for (NSString * scheme in schemeArray) {
+            if ([request[@"url"] hasPrefix:[NSString stringWithFormat:@"%@://", scheme]]) {
+                if ([[UIApplication sharedApplication] canOpenURL:[NSURL URLWithString:request[@"url"]]]) {
+                    return YES;
+                } else {
+                    return NO;
+                }
+            }
+        }
+  }
+    
   callback(request);
 
   // Block the main thread for a maximum of 250ms until the JS thread returns
