@@ -83,6 +83,7 @@ RCT_EXPORT_VIEW_PROPERTY(onScrollAnimationEnd, RCTDirectEventBlock)
 RCT_EXPORT_VIEW_PROPERTY(onLoadRefreshingAction, RCTDirectEventBlock)
 RCT_EXPORT_VIEW_PROPERTY(enablePullToRefresh, BOOL)
 RCT_EXPORT_VIEW_PROPERTY(isOnPullToRefresh, BOOL)
+RCT_EXPORT_VIEW_PROPERTY(refreshHeaderForceSyncBackgroundColor, BOOL)
 
 RCT_EXPORT_METHOD(getContentSize:(nonnull NSNumber *)reactTag
                   callback:(RCTResponseSenderBlock)callback)
