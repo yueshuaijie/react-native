@@ -43,5 +43,6 @@ shouldStartLoadForRequest:(NSMutableDictionary<NSString *, id> *)request
 - (void)reload;
 - (void)stopLoading;
 - (void)canGoBack:(RCTResponseSenderBlock)callback;
+- (void)injectJavaScript:(NSString *)script;
 
 @end

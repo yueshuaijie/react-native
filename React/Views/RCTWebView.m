@@ -284,4 +284,10 @@ RCT_NOT_IMPLEMENTED(- (instancetype)initWithCoder:(NSCoder *)aDecoder)
   }
 }
 
+- (void)injectJavaScript:(NSString *)script
+{
+    [_webView stringByEvaluatingJavaScriptFromString:script];
+}
+
+
 @end
