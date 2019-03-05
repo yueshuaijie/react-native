@@ -301,4 +301,14 @@ const styles = StyleSheet.create({
 
 const RCTImageView = requireNativeComponent('RCTImageView', Image);
 
+/**
+ * Resolves an asset reference into an object.
+ *
+ * See https://facebook.github.io/react-native/docs/image.html#resolveassetsource
+ */
+/* $FlowFixMe(>=0.89.0 site=react_native_ios_fb) This comment suppresses an
+ * error found when Flow v0.89 was deployed. To see the error, delete this
+ * comment and run Flow. */
+Image.resolveAssetSource = resolveAssetSource;
+
 module.exports = Image;
