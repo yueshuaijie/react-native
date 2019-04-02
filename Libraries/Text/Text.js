@@ -32,8 +32,6 @@ const viewConfig = {
     lineBreakMode: true,
     allowFontScaling: true,
     selectable: true,
-    adjustsFontSizeToFit: true,
-    minimumFontScale: true,
   }),
   uiViewClassName: 'RCTText',
 };
@@ -168,18 +166,7 @@ const Text = React.createClass({
      * [Accessibility guide](/react-native/docs/accessibility.html#accessible-ios-android)
      * for more information.
      */
-    accessible: React.PropTypes.bool,
-    /**
-     * Specifies whether font should be scaled down automatically to fit given style constraints.
-     * @platform ios
-     */
-    adjustsFontSizeToFit: React.PropTypes.bool,
-
-    /**
-     * Specifies smallest possible scale a font can reach when adjustsFontSizeToFit is enabled. (values 0.01-1.0).
-     * @platform ios
-     */
-    minimumFontScale: React.PropTypes.number,
+     accessible: React.PropTypes.bool,
   },
   getDefaultProps(): Object {
     return {

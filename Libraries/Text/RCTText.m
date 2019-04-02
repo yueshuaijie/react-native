@@ -34,6 +34,7 @@ static void collectNonTextDescendants(RCTText *view, NSMutableArray *nonTextDesc
 {
   if ((self = [super initWithFrame:frame])) {
     _textStorage = [NSTextStorage new];
+
     self.isAccessibilityElement = YES;
     self.accessibilityTraits |= UIAccessibilityTraitStaticText;
 
@@ -96,11 +97,11 @@ static void collectNonTextDescendants(RCTText *view, NSMutableArray *nonTextDesc
 
 - (void)drawRect:(CGRect)rect
 {
-  NSLayoutManager *layoutManager = [_textStorage.layoutManagers firstObject];
-  NSTextContainer *textContainer = [layoutManager.textContainers firstObject];
-
+  NSLayoutManager *layoutManager = _textStorage.layoutManagers.firstObject;
+  NSTextContainer *textContainer = layoutManager.textContainers.firstObject;
+  CGRect textFrame = UIEdgeInsetsInsetRect(self.bounds, _contentInset);
   NSRange glyphRange = [layoutManager glyphRangeForTextContainer:textContainer];
-  CGRect textFrame = self.textFrame;
+
   [layoutManager drawBackgroundForGlyphRange:glyphRange atPoint:textFrame.origin];
   [layoutManager drawGlyphsForGlyphRange:glyphRange atPoint:textFrame.origin];
 
@@ -168,7 +169,6 @@ static void collectNonTextDescendants(RCTText *view, NSMutableArray *nonTextDesc
     [self setNeedsDisplay];
   }
 }
-
 
 #pragma mark - Accessibility
 
