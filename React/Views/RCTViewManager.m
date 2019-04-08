@@ -108,6 +108,7 @@ RCT_EXPORT_MODULE()
 
 #pragma mark - View properties
 
+RCT_EXPORT_VIEW_PROPERTY(showLoadingAnimation, BOOL)
 RCT_EXPORT_VIEW_PROPERTY(accessibilityLabel, NSString)
 RCT_EXPORT_VIEW_PROPERTY(accessibilityTraits, UIAccessibilityTraits)
 RCT_EXPORT_VIEW_PROPERTY(backgroundColor, UIColor)

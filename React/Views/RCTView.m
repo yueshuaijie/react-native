@@ -122,6 +122,57 @@ static NSString *RCTRecursiveAccessibilityLabel(UIView *view)
   return self;
 }
 
+- (void)setShowLoadingAnimation:(BOOL)showLoadingAnimation
+{
+    dispatch_async(dispatch_get_main_queue(), ^{
+        if (_showLoadingAnimation != showLoadingAnimation) {
+            _showLoadingAnimation = showLoadingAnimation;
+            NSInteger TAG_LOADING_ANIMATION = 100011;
+            NSInteger TAG_LOADING_IMAGEVIEW = 10001101;
+            UIView *animationView = [self viewWithTag:TAG_LOADING_ANIMATION];
+            if (showLoadingAnimation) {
+                if (!animationView) {
+                    UIImageView *loadingView = [[UIImageView alloc] init];
+                    NSMutableArray *animatedImages = [NSMutableArray array];
+                    for (NSInteger i = 1; i <= 15; i++) {
+                        UIImage *image = [UIImage imageNamed:[NSString stringWithFormat:@"cbg_loading_%02zd", i]];
+                        [animatedImages addObject:image];
+                    }
+                    loadingView.animationImages = animatedImages;
+                    loadingView.animationDuration = animatedImages.count * 0.05;
+                    loadingView.animationRepeatCount = 0;
+                    CGFloat loadingWH = 150;
+                    loadingView.frame = CGRectMake((self.bounds.size.width - loadingWH) * 0.5, 0, loadingWH, loadingWH);
+                    [loadingView setTag:TAG_LOADING_IMAGEVIEW];
+                    [loadingView startAnimating];
+                    UILabel *descLabel = [[UILabel alloc] init];
+                    [descLabel setText:@"加载中..."];
+                    [descLabel setFont:[UIFont systemFontOfSize:14]];
+                    [descLabel setTextColor:[UIColor colorWithRed:102/255.0 green:102/255.0 blue:102/255.0 alpha:1.0]];
+                    [descLabel sizeToFit];
+                    CGRect descFrame = descLabel.frame;
+                    descFrame.origin = CGPointMake((self.bounds.size.width - descFrame.size.width) * 0.5, loadingWH);
+                    descLabel.frame = descFrame;
+                    UIView *animationView = [[UIView alloc] init];
+                    animationView.frame = CGRectMake(0, (self.bounds.size.height - loadingWH - descFrame.size.height) * 0.5, self.bounds.size.width, loadingWH + descFrame.size.height);
+                    [animationView addSubview:loadingView];
+                    [animationView addSubview:descLabel];
+                    [animationView setTag:TAG_LOADING_ANIMATION];
+                    [self addSubview:animationView];
+                    [self bringSubviewToFront:animationView];
+                } else {
+                    UIImageView *loadingView = [animationView viewWithTag:TAG_LOADING_IMAGEVIEW];
+                    [loadingView startAnimating];
+                }
+            } else {
+                if (animationView) {
+                    [animationView removeFromSuperview];
+                }
+            }
+        }
+    });
+}
+
 RCT_NOT_IMPLEMENTED(- (instancetype)initWithCoder:unused)
 
 - (NSString *)accessibilityLabel
