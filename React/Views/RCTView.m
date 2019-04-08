@@ -141,7 +141,7 @@ static NSString *RCTRecursiveAccessibilityLabel(UIView *view)
                     loadingView.animationImages = animatedImages;
                     loadingView.animationDuration = animatedImages.count * 0.05;
                     loadingView.animationRepeatCount = 0;
-                    CGFloat loadingWH = 150;
+                    CGFloat loadingWH = 75;
                     loadingView.frame = CGRectMake((self.bounds.size.width - loadingWH) * 0.5, 0, loadingWH, loadingWH);
                     [loadingView setTag:TAG_LOADING_IMAGEVIEW];
                     [loadingView startAnimating];
@@ -151,10 +151,11 @@ static NSString *RCTRecursiveAccessibilityLabel(UIView *view)
                     [descLabel setTextColor:[UIColor colorWithRed:102/255.0 green:102/255.0 blue:102/255.0 alpha:1.0]];
                     [descLabel sizeToFit];
                     CGRect descFrame = descLabel.frame;
-                    descFrame.origin = CGPointMake((self.bounds.size.width - descFrame.size.width) * 0.5, loadingWH);
+                    CGFloat descVerticalMargin = 5;
+                    descFrame.origin = CGPointMake((self.bounds.size.width - descFrame.size.width) * 0.5, loadingWH + descVerticalMargin);
                     descLabel.frame = descFrame;
                     UIView *animationView = [[UIView alloc] init];
-                    animationView.frame = CGRectMake(0, (self.bounds.size.height - loadingWH - descFrame.size.height) * 0.5, self.bounds.size.width, loadingWH + descFrame.size.height);
+                    animationView.frame = CGRectMake(0, (self.bounds.size.height - loadingWH - descFrame.size.height) * 0.5, self.bounds.size.width, loadingWH + descFrame.size.height + descVerticalMargin);
                     [animationView addSubview:loadingView];
                     [animationView addSubview:descLabel];
                     [animationView setTag:TAG_LOADING_ANIMATION];
