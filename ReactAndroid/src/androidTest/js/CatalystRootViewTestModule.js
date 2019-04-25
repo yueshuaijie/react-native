@@ -1,26 +1,32 @@
 /**
- * Copyright (c) 2013-present, Facebook, Inc.
- * All rights reserved.
+ * Copyright (c) Facebook, Inc. and its affiliates.
  *
- * This source code is licensed under the BSD-style license found in the
- * LICENSE file in the root directory of this source tree. An additional grant
- * of patent rights can be found in the PATENTS file in the same directory.
+ * This source code is licensed under the MIT license found in the
+ * LICENSE file in the root directory of this source tree.
  *
- * @providesModule CatalystRootViewTestModule
+ * @format
  */
 
 'use strict';
 
-var React = require('React');
-var Recording = require('NativeModules').Recording;
-var View = require('View');
+const React = require('React');
+const Recording = require('NativeModules').Recording;
+const StyleSheet = require('StyleSheet');
+const View = require('View');
 
-var CatalystRootViewTestApp = React.createClass({
-  componentWillUnmount: function() {
+class CatalystRootViewTestApp extends React.Component {
+  componentWillUnmount() {
     Recording.record('RootComponentWillUnmount');
-  },
-  render: function() {
-    return <View collapsable={false} style={{alignSelf: 'stretch'}} />;
+  }
+
+  render() {
+    return <View collapsable={false} style={styles.container} />;
+  }
+}
+
+const styles = StyleSheet.create({
+  container: {
+    alignSelf: 'stretch',
   },
 });
 

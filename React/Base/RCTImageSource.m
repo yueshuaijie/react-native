@@ -1,10 +1,8 @@
 /**
- * Copyright (c) 2015-present, Facebook, Inc.
- * All rights reserved.
+ * Copyright (c) Facebook, Inc. and its affiliates.
  *
- * This source code is licensed under the BSD-style license found in the
- * LICENSE file in the root directory of this source tree. An additional grant
- * of patent rights can be found in the PATENTS file in the same directory.
+ * This source code is licensed under the MIT license found in the
+ * LICENSE file in the root directory of this source tree.
  */
 
 #import "RCTImageSource.h"
@@ -46,14 +44,10 @@
   (CGSizeEqualToSize(_size, object.size) || CGSizeEqualToSize(object.size, CGSizeZero));
 }
 
-@end
-
-
-@implementation RCTImageSource (Deprecated)
-
-- (NSURL *)imageURL
+- (NSString *)description
 {
-  return self.request.URL;
+  return [NSString stringWithFormat:@"<RCTImageSource: %p URL=%@, size=%@, scale=%0.f>",
+          self, _request.URL, NSStringFromCGSize(_size), _scale];
 }
 
 @end
@@ -85,10 +79,12 @@
   }
 
   RCTImageSource *imageSource = [[RCTImageSource alloc] initWithURLRequest:request
-                                                               size:size
-                                                              scale:scale];
+                                                                      size:size
+                                                                     scale:scale];
   imageSource.packagerAsset = packagerAsset;
   return imageSource;
 }
+
+RCT_ARRAY_CONVERTER(RCTImageSource)
 
 @end

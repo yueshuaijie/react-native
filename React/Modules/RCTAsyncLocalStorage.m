@@ -1,10 +1,8 @@
 /**
- * Copyright (c) 2015-present, Facebook, Inc.
- * All rights reserved.
+ * Copyright (c) Facebook, Inc. and its affiliates.
  *
- * This source code is licensed under the BSD-style license found in the
- * LICENSE file in the root directory of this source tree. An additional grant
- * of patent rights can be found in the PATENTS file in the same directory.
+ * This source code is licensed under the MIT license found in the
+ * LICENSE file in the root directory of this source tree.
  */
 
 #import "RCTAsyncLocalStorage.h"
@@ -51,14 +49,20 @@ static NSString *RCTReadFile(NSString *filePath, NSString *key, NSDictionary **e
     NSError *error;
     NSStringEncoding encoding;
     NSString *entryString = [NSString stringWithContentsOfFile:filePath usedEncoding:&encoding error:&error];
+    NSDictionary *extraData = @{@"key": RCTNullIfNil(key)};
+
     if (error) {
-      *errorOut = RCTMakeError(@"Failed to read storage file.", error, @{@"key": key});
-    } else if (encoding != NSUTF8StringEncoding) {
-      *errorOut = RCTMakeError(@"Incorrect encoding of storage file: ", @(encoding), @{@"key": key});
-    } else {
-      return entryString;
+      if (errorOut) *errorOut = RCTMakeError(@"Failed to read storage file.", error, extraData);
+      return nil;
     }
+
+    if (encoding != NSUTF8StringEncoding) {
+      if (errorOut) *errorOut = RCTMakeError(@"Incorrect encoding of storage file: ", @(encoding), extraData);
+      return nil;
+    }
+    return entryString;
   }
+
   return nil;
 }
 
@@ -67,7 +71,11 @@ static NSString *RCTGetStorageDirectory()
   static NSString *storageDirectory = nil;
   static dispatch_once_t onceToken;
   dispatch_once(&onceToken, ^{
+#if TARGET_OS_TV
+    storageDirectory = NSSearchPathForDirectoriesInDomains(NSCachesDirectory, NSUserDomainMask, YES).firstObject;
+#else
     storageDirectory = NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES).firstObject;
+#endif
     storageDirectory = [storageDirectory stringByAppendingPathComponent:RCTStorageDirectory];
   });
   return storageDirectory;
@@ -169,7 +177,7 @@ RCT_EXPORT_MODULE()
 - (void)clearAllData
 {
   dispatch_async(RCTGetMethodQueue(), ^{
-    [_manifest removeAllObjects];
+    [self->_manifest removeAllObjects];
     [RCTGetCache() removeAllObjects];
     RCTDeleteStorageDirectory();
   });
@@ -214,6 +222,10 @@ RCT_EXPORT_MODULE()
 {
   RCTAssertThread(RCTGetMethodQueue(), @"Must be executed on storage thread");
 
+#if TARGET_OS_TV
+  RCTLogWarn(@"Persistent storage is not supported on tvOS, your data may be removed at any point.");
+#endif
+
   NSError *error = nil;
   if (!RCTHasCreatedStorageDirectory) {
     [[NSFileManager defaultManager] createDirectoryAtPath:RCTGetStorageDirectory()
@@ -227,7 +239,7 @@ RCT_EXPORT_MODULE()
   }
   if (!_haveSetup) {
     NSDictionary *errorOut;
-    NSString *serialized = RCTReadFile(RCTGetManifestFilePath(), nil, &errorOut);
+    NSString *serialized = RCTReadFile(RCTGetManifestFilePath(), RCTManifestFileName, &errorOut);
     _manifest = serialized ? RCTJSONParseMutable(serialized, &error) : [NSMutableDictionary new];
     if (error) {
       RCTLogWarn(@"Failed to parse manifest - creating new one.\n\n%@", error);
@@ -411,10 +423,8 @@ RCT_EXPORT_METHOD(multiRemove:(NSArray<NSString *> *)keys
         NSString *filePath = [self _filePathForKey:key];
         [[NSFileManager defaultManager] removeItemAtPath:filePath error:nil];
         [RCTGetCache() removeObjectForKey:key];
-        // remove the key from manifest, but no need to mark as changed just for
-        // this, as the cost of checking again next time is negligible.
-        [_manifest removeObjectForKey:key];
-      } else if (_manifest[key]) {
+      }
+      if (_manifest[key]) {
         changedManifest = YES;
         [_manifest removeObjectForKey:key];
       }

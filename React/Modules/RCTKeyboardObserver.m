@@ -1,10 +1,8 @@
 /**
- * Copyright (c) 2015-present, Facebook, Inc.
- * All rights reserved.
+ * Copyright (c) Facebook, Inc. and its affiliates.
  *
- * This source code is licensed under the BSD-style license found in the
- * LICENSE file in the root directory of this source tree. An additional grant
- * of patent rights can be found in the PATENTS file in the same directory.
+ * This source code is licensed under the MIT license found in the
+ * LICENSE file in the root directory of this source tree.
  */
 
 #import "RCTKeyboardObserver.h"
@@ -19,6 +17,8 @@ RCT_EXPORT_MODULE()
 
 - (void)startObserving
 {
+#if !TARGET_OS_TV
+
   NSNotificationCenter *nc = [NSNotificationCenter defaultCenter];
 
 #define ADD_KEYBOARD_HANDLER(NAME, SELECTOR) \
@@ -32,6 +32,8 @@ RCT_EXPORT_MODULE()
   ADD_KEYBOARD_HANDLER(UIKeyboardDidChangeFrameNotification, keyboardDidChangeFrame);
 
 #undef ADD_KEYBOARD_HANDLER
+
+#endif
 
 }
 
@@ -50,9 +52,15 @@ RCT_EXPORT_MODULE()
   [[NSNotificationCenter defaultCenter] removeObserver:self];
 }
 
+// Bridge might be already invalidated by the time the keyboard is about to be dismissed.
+// This might happen, for example, when reload from the packager is performed.
+// Thus we need to check against nil here.
 #define IMPLEMENT_KEYBOARD_HANDLER(EVENT) \
 - (void)EVENT:(NSNotification *)notification \
 { \
+  if (!self.bridge) { \
+    return; \
+  } \
   [self sendEventWithName:@#EVENT \
     body:RCTParseKeyboardNotification(notification)]; \
 }
@@ -94,16 +102,22 @@ static NSString *RCTAnimationNameForCurve(UIViewAnimationCurve curve)
 
 static NSDictionary *RCTParseKeyboardNotification(NSNotification *notification)
 {
+#if TARGET_OS_TV
+  return @{};
+#else
   NSDictionary *userInfo = notification.userInfo;
   CGRect beginFrame = [userInfo[UIKeyboardFrameBeginUserInfoKey] CGRectValue];
   CGRect endFrame = [userInfo[UIKeyboardFrameEndUserInfoKey] CGRectValue];
   NSTimeInterval duration = [userInfo[UIKeyboardAnimationDurationUserInfoKey] doubleValue];
   UIViewAnimationCurve curve = [userInfo[UIKeyboardAnimationCurveUserInfoKey] integerValue];
+  NSInteger isLocalUserInfoKey = [userInfo[UIKeyboardIsLocalUserInfoKey] integerValue];
 
   return @{
     @"startCoordinates": RCTRectDictionaryValue(beginFrame),
     @"endCoordinates": RCTRectDictionaryValue(endFrame),
     @"duration": @(duration * 1000.0), // ms
     @"easing": RCTAnimationNameForCurve(curve),
+    @"isEventFromThisApp": isLocalUserInfoKey == 1 ? @YES : @NO,
   };
+#endif
 }

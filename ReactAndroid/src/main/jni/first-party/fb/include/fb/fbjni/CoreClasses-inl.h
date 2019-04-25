@@ -1,10 +1,8 @@
 /*
- * Copyright (c) 2015-present, Facebook, Inc.
- * All rights reserved.
+ * Copyright (c) Facebook, Inc. and its affiliates.
  *
- * This source code is licensed under the BSD-style license found in the
- * LICENSE file in the root directory of this source tree. An additional grant
- * of patent rights can be found in the PATENTS file in the same directory.
+ * This source code is licensed under the MIT license found in the
+ * LICENSE file in the root directory of this source tree.
  */
 
 #pragma once
@@ -177,7 +175,12 @@ inline void JClass::registerNatives(std::initializer_list<NativeMethod> methods)
 
 inline bool JClass::isAssignableFrom(alias_ref<JClass> other) const noexcept {
   const auto env = internal::getEnv();
-  const auto result = env->IsAssignableFrom(self(), other.get());
+  // Ths method has behavior compatible with the
+  // java.lang.Class#isAssignableFrom method.  The order of the
+  // arguments to the JNI IsAssignableFrom C function is "opposite"
+  // from what some might expect, which makes this code look a little
+  // odd, but it is correct.
+  const auto result = env->IsAssignableFrom(other.get(), self());
   return result;
 }
 

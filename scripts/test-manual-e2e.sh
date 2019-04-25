@@ -1,4 +1,8 @@
-#! /bin/bash
+#!/bin/bash
+# Copyright (c) Facebook, Inc. and its affiliates.
+#
+# This source code is licensed under the MIT license found in the
+# LICENSE file in the root directory of this source tree.
 
 JAVA_VERSION="1.7"
 
@@ -8,16 +12,16 @@ BLUE="\033[0;35m"
 ENDCOLOR="\033[0m"
 
 error() {
-    echo -e $RED"$@"$ENDCOLOR
+    echo -e "$RED""$*""$ENDCOLOR"
     exit 1
 }
 
 success() {
-    echo -e $GREEN"$@"$ENDCOLOR
+    echo -e "$GREEN""$*""$ENDCOLOR"
 }
 
 info() {
-    echo -e $BLUE"$@"$ENDCOLOR
+    echo -e "$BLUE""$*""$ENDCOLOR"
 }
 
 PACKAGE_VERSION=$(cat package.json \
@@ -35,6 +39,37 @@ rm -rf android
 ./gradlew :ReactAndroid:installArchives || error "Couldn't generate artifacts"
 
 success "Generated artifacts for Maven"
+
+npm install
+
+success "Killing any running packagers"
+lsof -i :8081 | grep LISTEN
+lsof -i :8081 | grep LISTEN | /usr/bin/awk '{print $2}' | xargs kill
+
+info "Start the packager in another terminal by running 'npm start' from the root"
+info "and then press any key."
+info ""
+read -n 1
+
+./gradlew :RNTester:android:app:installDebug || error "Couln't build RNTester Android"
+
+info "Press any key to run RNTester in an already running Android emulator/device"
+info ""
+read -n 1
+adb shell am start -n com.facebook.react.uiapp/.RNTesterActivity
+
+info "Press any key to open the project in Xcode, then build and test manually."
+info ""
+read -n 1
+open "RNTester/RNTester.xcodeproj"
+
+info "When done testing RNTester app on iOS and Android press any key to continue."
+info ""
+read -n 1
+
+success "Killing packager"
+lsof -i :8081 | grep LISTEN
+lsof -i :8081 | grep LISTEN | /usr/bin/awk '{print $2}' | xargs kill
 
 npm pack
 
@@ -67,10 +102,10 @@ info "   - Disable Hot Reloading. It might be enabled from last time (the settin
 info "   - Verify 'Reload JS' works"
 info "   - Test Chrome debugger by adding breakpoints and reloading JS. We don't have tests for Chrome debugging."
 info "   - Disable Chrome debugging."
-info "   - Enable Hot Reloading, change a file (index.ios.js, index.android.js) and save. The UI should refresh."
+info "   - Enable Hot Reloading, change a file (index.js) and save. The UI should refresh."
 info "   - Disable Hot Reloading."
 info ""
-info "Press any key to open the project in XCode"
+info "Press any key to open the project in Xcode"
 info ""
 read -n 1
 open "/tmp/${project_name}/ios/${project_name}.xcodeproj"

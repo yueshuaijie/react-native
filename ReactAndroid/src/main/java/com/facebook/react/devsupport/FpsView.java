@@ -1,18 +1,14 @@
 /**
- * Copyright (c) 2015-present, Facebook, Inc.
- * All rights reserved.
+ * Copyright (c) Facebook, Inc. and its affiliates.
  *
- * This source code is licensed under the BSD-style license found in the
- * LICENSE file in the root directory of this source tree. An additional grant
- * of patent rights can be found in the PATENTS file in the same directory.
+ * This source code is licensed under the MIT license found in the
+ * LICENSE file in the root directory of this source tree.
  */
 
 package com.facebook.react.devsupport;
 
 import java.util.Locale;
 
-import android.annotation.TargetApi;
-import android.view.Choreographer;
 import android.widget.FrameLayout;
 import android.widget.TextView;
 
@@ -20,6 +16,7 @@ import com.facebook.common.logging.FLog;
 import com.facebook.react.R;
 import com.facebook.react.bridge.ReactContext;
 import com.facebook.react.common.ReactConstants;
+import com.facebook.react.modules.core.ChoreographerCompat;
 import com.facebook.react.modules.debug.FpsDebugFrameCallback;
 
 /**
@@ -28,7 +25,6 @@ import com.facebook.react.modules.debug.FpsDebugFrameCallback;
  *
  * NB: Requires API 16 for use of FpsDebugFrameCallback.
  */
-@TargetApi(16)
 public class FpsView extends FrameLayout {
 
   private static final int UPDATE_INTERVAL_MS = 500;
@@ -41,7 +37,7 @@ public class FpsView extends FrameLayout {
     super(reactContext);
     inflate(reactContext, R.layout.fps_view, this);
     mTextView = (TextView) findViewById(R.id.fps_text);
-    mFrameCallback = new FpsDebugFrameCallback(Choreographer.getInstance(), reactContext);
+    mFrameCallback = new FpsDebugFrameCallback(reactContext);
     mFPSMonitorRunnable = new FPSMonitorRunnable();
     setCurrentFPS(0, 0, 0, 0);
   }

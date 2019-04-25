@@ -1,3 +1,10 @@
+/**
+ * Copyright (c) Facebook, Inc. and its affiliates.
+ *
+ * This source code is licensed under the MIT license found in the
+ * LICENSE file in the root directory of this source tree.
+ */
+
 package com.facebook.react.animated;
 
 import com.facebook.react.bridge.JSApplicationCausedNativeException;
@@ -30,7 +37,7 @@ import com.facebook.react.bridge.ReadableMap;
     for (int i = 0; i < mInputNodes.length; i++) {
       AnimatedNode animatedNode = mNativeAnimatedNodesManager.getNodeById(mInputNodes[i]);
       if (animatedNode != null && animatedNode instanceof ValueAnimatedNode) {
-        mValue *= ((ValueAnimatedNode) animatedNode).mValue;
+        mValue *= ((ValueAnimatedNode) animatedNode).getValue();
       } else {
         throw new JSApplicationCausedNativeException("Illegal node ID set as an input for " +
           "Animated.multiply node");

@@ -1,10 +1,8 @@
 /**
- * Copyright (c) 2015-present, Facebook, Inc.
- * All rights reserved.
+ * Copyright (c) Facebook, Inc. and its affiliates.
  *
- * This source code is licensed under the BSD-style license found in the
- * LICENSE file in the root directory of this source tree. An additional grant
- * of patent rights can be found in the PATENTS file in the same directory.
+ * This source code is licensed under the MIT license found in the
+ * LICENSE file in the root directory of this source tree.
  */
 
 package com.facebook.react.modules.camera;
@@ -28,8 +26,10 @@ import android.annotation.SuppressLint;
 import android.content.Context;
 import android.database.Cursor;
 import android.graphics.Bitmap;
+import android.graphics.BitmapRegionDecoder;
 import android.graphics.BitmapFactory;
 import android.graphics.Matrix;
+import android.graphics.Rect;
 import android.media.ExifInterface;
 import android.net.Uri;
 import android.os.AsyncTask;
@@ -47,11 +47,15 @@ import com.facebook.react.bridge.JSApplicationIllegalArgumentException;
 import com.facebook.react.bridge.ReadableMap;
 import com.facebook.infer.annotation.Assertions;
 import com.facebook.react.common.ReactConstants;
+import com.facebook.react.module.annotations.ReactModule;
 
 /**
  * Native module that provides image cropping functionality.
  */
+@ReactModule(name = ImageEditingManager.NAME)
 public class ImageEditingManager extends ReactContextBaseJavaModule {
+
+  protected static final String NAME = "ImageEditingManager";
 
   private static final List<String> LOCAL_URI_PREFIXES = Arrays.asList(
       "file://", "content://");
@@ -89,7 +93,6 @@ public class ImageEditingManager extends ReactContextBaseJavaModule {
     ExifInterface.TAG_WHITE_BALANCE
   };
 
-
   public ImageEditingManager(ReactApplicationContext reactContext) {
     super(reactContext);
     new CleanTask(getReactApplicationContext()).executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
@@ -97,7 +100,7 @@ public class ImageEditingManager extends ReactContextBaseJavaModule {
 
   @Override
   public String getName() {
-    return "RKImageEditingManager";
+    return NAME;
   }
 
   @Override
@@ -190,7 +193,9 @@ public class ImageEditingManager extends ReactContextBaseJavaModule {
         error);
     if (options.hasKey("displaySize")) {
       ReadableMap targetSize = options.getMap("displaySize");
-      cropTask.setTargetSize(targetSize.getInt("width"), targetSize.getInt("height"));
+      cropTask.setTargetSize(
+        (int) targetSize.getDouble("width"),
+        (int) targetSize.getDouble("height"));
     }
     cropTask.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
   }
@@ -282,7 +287,6 @@ public class ImageEditingManager extends ReactContextBaseJavaModule {
         }
 
         mSuccess.invoke(Uri.fromFile(tempFile).toString());
-
       } catch (Exception e) {
         mError.invoke(e.getMessage());
       }
@@ -294,17 +298,17 @@ public class ImageEditingManager extends ReactContextBaseJavaModule {
      */
     private Bitmap crop(BitmapFactory.Options outOptions) throws IOException {
       InputStream inputStream = openBitmapInputStream();
+      // Effeciently crops image without loading full resolution into memory
+      // https://developer.android.com/reference/android/graphics/BitmapRegionDecoder.html
+      BitmapRegionDecoder decoder = BitmapRegionDecoder.newInstance(inputStream, false);
       try {
-        // This can use a lot of memory
-        Bitmap fullResolutionBitmap = BitmapFactory.decodeStream(inputStream, null, outOptions);
-        if (fullResolutionBitmap == null) {
-          throw new IOException("Cannot decode bitmap: " + mUri);
-        }
-        return Bitmap.createBitmap(fullResolutionBitmap, mX, mY, mWidth, mHeight);
+        Rect rect = new Rect(mX, mY, mX + mWidth, mY + mHeight);
+        return decoder.decodeRegion(rect, outOptions);
       } finally {
         if (inputStream != null) {
           inputStream.close();
         }
+        decoder.recycle();
       }
     }
 

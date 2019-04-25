@@ -1,10 +1,8 @@
 /**
- * Copyright (c) 2015-present, Facebook, Inc.
- * All rights reserved.
+ * Copyright (c) Facebook, Inc. and its affiliates.
  *
- * This source code is licensed under the BSD-style license found in the
- * LICENSE file in the root directory of this source tree. An additional grant
- * of patent rights can be found in the PATENTS file in the same directory.
+ * This source code is licensed under the MIT license found in the
+ * LICENSE file in the root directory of this source tree.
  */
 
 package com.facebook.react.uimanager;
@@ -124,8 +122,13 @@ public class TouchTargetHelper {
    */
   private static View findTouchTargetView(float[] eventCoords, ViewGroup viewGroup) {
     int childrenCount = viewGroup.getChildCount();
+    // Consider z-index when determining the touch target.
+    ReactZIndexedViewGroup zIndexedViewGroup = viewGroup instanceof ReactZIndexedViewGroup ?
+      (ReactZIndexedViewGroup) viewGroup :
+      null;
     for (int i = childrenCount - 1; i >= 0; i--) {
-      View child = viewGroup.getChildAt(i);
+      int childIndex = zIndexedViewGroup != null ? zIndexedViewGroup.getZIndexMappedChildIndex(i) : i;
+      View child = viewGroup.getChildAt(childIndex);
       PointF childPoint = mTempPoint;
       if (isTransformedTouchPointInView(eventCoords[0], eventCoords[1], viewGroup, child, childPoint)) {
         // If it is contained within the child View, the childPoint value will contain the view
@@ -174,7 +177,7 @@ public class TouchTargetHelper {
     if (child instanceof ReactHitSlopView && ((ReactHitSlopView) child).getHitSlopRect() != null) {
       Rect hitSlopRect = ((ReactHitSlopView) child).getHitSlopRect();
       if ((localX >= -hitSlopRect.left && localX < (child.getRight() - child.getLeft()) + hitSlopRect.right)
-          && (localY >= -hitSlopRect.top && localY < (child.getBottom() - child.getTop()) + hitSlopRect.bottom)) {
+        && (localY >= -hitSlopRect.top && localY < (child.getBottom() - child.getTop()) + hitSlopRect.bottom)) {
         outLocalPoint.set(localX, localY);
         return true;
       }
@@ -182,7 +185,7 @@ public class TouchTargetHelper {
       return false;
     } else {
       if ((localX >= 0 && localX < (child.getRight() - child.getLeft()))
-          && (localY >= 0 && localY < (child.getBottom() - child.getTop()))) {
+        && (localY >= 0 && localY < (child.getBottom() - child.getTop()))) {
         outLocalPoint.set(localX, localY);
         return true;
       }
@@ -200,6 +203,18 @@ public class TouchTargetHelper {
       float eventCoords[], View view) {
     PointerEvents pointerEvents = view instanceof ReactPointerEventsView ?
         ((ReactPointerEventsView) view).getPointerEvents() : PointerEvents.AUTO;
+
+    // Views that are disabled should never be the target of pointer events. However, their children
+    // can be because some views (SwipeRefreshLayout) use enabled but still have children that can
+    // be valid targets.
+    if (!view.isEnabled()) {
+      if (pointerEvents == PointerEvents.AUTO) {
+        pointerEvents = PointerEvents.BOX_NONE;
+      } else if (pointerEvents == PointerEvents.BOX_ONLY) {
+        pointerEvents = PointerEvents.NONE;
+      }
+    }
+
     if (pointerEvents == PointerEvents.NONE) {
       // This view and its children can't be the target
       return null;
@@ -209,7 +224,7 @@ public class TouchTargetHelper {
       return view;
 
     } else if (pointerEvents == PointerEvents.BOX_NONE) {
-      // This view can't be the target, but its children might
+      // This view can't be the target, but its children might.
       if (view instanceof ViewGroup) {
         View targetView = findTouchTargetView(eventCoords, (ViewGroup) view);
         if (targetView != view) {

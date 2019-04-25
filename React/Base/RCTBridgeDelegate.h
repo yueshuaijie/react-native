@@ -1,15 +1,14 @@
 /**
- * Copyright (c) 2015-present, Facebook, Inc.
- * All rights reserved.
+ * Copyright (c) Facebook, Inc. and its affiliates.
  *
- * This source code is licensed under the BSD-style license found in the
- * LICENSE file in the root directory of this source tree. An additional grant
- * of patent rights can be found in the PATENTS file in the same directory.
+ * This source code is licensed under the MIT license found in the
+ * LICENSE file in the root directory of this source tree.
  */
 
-typedef void (^RCTSourceLoadBlock)(NSError *error, NSData *source);
+#import <React/RCTJavaScriptLoader.h>
 
 @class RCTBridge;
+@protocol RCTBridgeModule;
 
 @protocol RCTBridgeDelegate <NSObject>
 
@@ -22,15 +21,6 @@ typedef void (^RCTSourceLoadBlock)(NSError *error, NSData *source);
 - (NSURL *)sourceURLForBridge:(RCTBridge *)bridge;
 
 @optional
-
-/**
- * The bridge will attempt to load the JS source code from the location specified
- * by the `sourceURLForBridge:` method, if loading fails, you can implement this
- * method to specify fallbackSourceURL.
- * NOTE: We don't plan to support this API permanently (this method will be
- * removed after we track down why a valid sourceURL fails to load sometimes).
- */
-- (NSURL *)fallbackSourceURLForBridge:(RCTBridge *)bridge;
 
 /**
  * The bridge initializes any registered RCTBridgeModules automatically, however
@@ -46,7 +36,25 @@ typedef void (^RCTSourceLoadBlock)(NSError *error, NSData *source);
  * not recommended in most cases - if the module methods and behavior do not
  * match exactly, it may lead to bugs or crashes.
  */
-- (NSArray *)extraModulesForBridge:(RCTBridge *)bridge;
+- (NSArray<id<RCTBridgeModule>> *)extraModulesForBridge:(RCTBridge *)bridge;
+
+/**
+ * Configure whether the JSCExecutor created should use the system JSC API or
+ * alternative hooks provided. When returning YES from this method, you must have
+ * previously called facebook::react::setCustomJSCWrapper.
+ *
+ * @experimental
+ */
+- (BOOL)shouldBridgeUseCustomJSC:(RCTBridge *)bridge;
+
+/**
+* The bridge will call this method when a module been called from JS
+* cannot be found among registered modules.
+* It should return YES if the module with name 'moduleName' was registered
+* in the implementation, and the system must attempt to look for it again among registered.
+* If the module was not registered, return NO to prevent further searches.
+*/
+- (BOOL)bridge:(RCTBridge *)bridge didNotFindModule:(NSString *)moduleName;
 
 /**
  * The bridge will automatically attempt to load the JS source code from the
@@ -54,6 +62,19 @@ typedef void (^RCTSourceLoadBlock)(NSError *error, NSData *source);
  * to handle loading the JS yourself, you can do so by implementing this method.
  */
 - (void)loadSourceForBridge:(RCTBridge *)bridge
+                 onProgress:(RCTSourceLoadProgressBlock)onProgress
+                 onComplete:(RCTSourceLoadBlock)loadCallback;
+
+/**
+ * Similar to loadSourceForBridge:onProgress:onComplete: but without progress
+ * reporting.
+ */
+- (void)loadSourceForBridge:(RCTBridge *)bridge
                   withBlock:(RCTSourceLoadBlock)loadCallback;
+
+/**
+ * Retrieve the list of lazy-native-modules names for the given bridge.
+ */
+- (NSDictionary<NSString *, Class> *)extraLazyModuleClassesForBridge:(RCTBridge *)bridge;
 
 @end

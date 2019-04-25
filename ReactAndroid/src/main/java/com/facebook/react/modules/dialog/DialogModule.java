@@ -1,17 +1,11 @@
 /**
- * Copyright (c) 2015-present, Facebook, Inc.
- * All rights reserved.
+ * Copyright (c) Facebook, Inc. and its affiliates.
  *
- * This source code is licensed under the BSD-style license found in the
- * LICENSE file in the root directory of this source tree. An additional grant
- * of patent rights can be found in the PATENTS file in the same directory.
+ * This source code is licensed under the MIT license found in the
+ * LICENSE file in the root directory of this source tree.
  */
 
 package com.facebook.react.modules.dialog;
-
-import javax.annotation.Nullable;
-
-import java.util.Map;
 
 import android.app.Activity;
 import android.content.DialogInterface;
@@ -19,9 +13,7 @@ import android.content.DialogInterface.OnClickListener;
 import android.content.DialogInterface.OnDismissListener;
 import android.os.Bundle;
 import android.support.v4.app.FragmentActivity;
-
 import com.facebook.common.logging.FLog;
-import com.facebook.infer.annotation.Assertions;
 import com.facebook.react.bridge.Callback;
 import com.facebook.react.bridge.LifecycleEventListener;
 import com.facebook.react.bridge.ReactApplicationContext;
@@ -29,14 +21,19 @@ import com.facebook.react.bridge.ReactContextBaseJavaModule;
 import com.facebook.react.bridge.ReactMethod;
 import com.facebook.react.bridge.ReadableArray;
 import com.facebook.react.bridge.ReadableMap;
+import com.facebook.react.bridge.UiThreadUtil;
 import com.facebook.react.common.MapBuilder;
+import com.facebook.react.module.annotations.ReactModule;
+import java.util.Map;
+import javax.annotation.Nullable;
 
+@ReactModule(name = DialogModule.NAME)
 public class DialogModule extends ReactContextBaseJavaModule implements LifecycleEventListener {
 
   /* package */ static final String FRAGMENT_TAG =
       "com.facebook.catalyst.react.dialog.DialogModule";
 
-  /* package */ static final String NAME = "DialogManagerAndroid";
+  public static final String NAME = "DialogManagerAndroid";
 
   /* package */ static final String ACTION_BUTTON_CLICKED = "buttonClicked";
   /* package */ static final String ACTION_DISMISSED = "dismissed";
@@ -46,6 +43,7 @@ public class DialogModule extends ReactContextBaseJavaModule implements Lifecycl
   /* package */ static final String KEY_BUTTON_NEGATIVE = "buttonNegative";
   /* package */ static final String KEY_BUTTON_NEUTRAL = "buttonNeutral";
   /* package */ static final String KEY_ITEMS = "items";
+  /* package */ static final String KEY_CANCELABLE = "cancelable";
 
   /* package */ static final Map<String, Object> CONSTANTS = MapBuilder.<String, Object>of(
       ACTION_BUTTON_CLICKED, ACTION_BUTTON_CLICKED,
@@ -93,6 +91,7 @@ public class DialogModule extends ReactContextBaseJavaModule implements Lifecycl
     }
 
     public void showPendingAlert() {
+      UiThreadUtil.assertOnUiThread();
       if (mFragmentToShow == null) {
         return;
       }
@@ -108,19 +107,21 @@ public class DialogModule extends ReactContextBaseJavaModule implements Lifecycl
       if (isUsingSupportLibrary()) {
         SupportAlertFragment oldFragment =
             (SupportAlertFragment) mSupportFragmentManager.findFragmentByTag(FRAGMENT_TAG);
-        if (oldFragment != null) {
+        if (oldFragment != null && oldFragment.isResumed()) {
           oldFragment.dismiss();
         }
       } else {
         AlertFragment oldFragment =
             (AlertFragment) mFragmentManager.findFragmentByTag(FRAGMENT_TAG);
-        if (oldFragment != null) {
+        if (oldFragment != null && oldFragment.isResumed()) {
           oldFragment.dismiss();
         }
       }
     }
 
     public void showNewAlert(boolean isInForeground, Bundle arguments, Callback actionCallback) {
+      UiThreadUtil.assertOnUiThread();
+
       dismissExisting();
 
       AlertFragmentListener actionListener =
@@ -128,7 +129,10 @@ public class DialogModule extends ReactContextBaseJavaModule implements Lifecycl
 
       if (isUsingSupportLibrary()) {
         SupportAlertFragment alertFragment = new SupportAlertFragment(actionListener, arguments);
-        if (isInForeground) {
+        if (isInForeground && !mSupportFragmentManager.isStateSaved()) {
+          if (arguments.containsKey(KEY_CANCELABLE)) {
+            alertFragment.setCancelable(arguments.getBoolean(KEY_CANCELABLE));
+          }
           alertFragment.show(mSupportFragmentManager, FRAGMENT_TAG);
         } else {
           mFragmentToShow = alertFragment;
@@ -136,6 +140,9 @@ public class DialogModule extends ReactContextBaseJavaModule implements Lifecycl
       } else {
         AlertFragment alertFragment = new AlertFragment(actionListener, arguments);
         if (isInForeground) {
+          if (arguments.containsKey(KEY_CANCELABLE)) {
+            alertFragment.setCancelable(arguments.getBoolean(KEY_CANCELABLE));
+          }
           alertFragment.show(mFragmentManager, FRAGMENT_TAG);
         } else {
           mFragmentToShow = alertFragment;
@@ -210,8 +217,8 @@ public class DialogModule extends ReactContextBaseJavaModule implements Lifecycl
   public void showAlert(
       ReadableMap options,
       Callback errorCallback,
-      Callback actionCallback) {
-    FragmentManagerHelper fragmentManagerHelper = getFragmentManagerHelper();
+      final Callback actionCallback) {
+    final FragmentManagerHelper fragmentManagerHelper = getFragmentManagerHelper();
     if (fragmentManagerHelper == null) {
       errorCallback.invoke("Tried to show an alert while not attached to an Activity");
       return;
@@ -241,8 +248,17 @@ public class DialogModule extends ReactContextBaseJavaModule implements Lifecycl
       }
       args.putCharSequenceArray(AlertFragment.ARG_ITEMS, itemsArray);
     }
+    if (options.hasKey(KEY_CANCELABLE)) {
+      args.putBoolean(KEY_CANCELABLE, options.getBoolean(KEY_CANCELABLE));
+    }
 
-    fragmentManagerHelper.showNewAlert(mIsInForeground, args, actionCallback);
+    UiThreadUtil.runOnUiThread(new Runnable() {
+      @Override
+      public void run() {
+        fragmentManagerHelper.showNewAlert(mIsInForeground, args, actionCallback);
+      }
+    });
+
   }
 
   /**

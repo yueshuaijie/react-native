@@ -1,18 +1,15 @@
 /**
- * Copyright (c) 2015-present, Facebook, Inc.
- * All rights reserved.
+ * Copyright (c) Facebook, Inc. and its affiliates.
  *
- * This source code is licensed under the BSD-style license found in the
- * LICENSE file in the root directory of this source tree. An additional grant
- * of patent rights can be found in the PATENTS file in the same directory.
+ * This source code is licensed under the MIT license found in the
+ * LICENSE file in the root directory of this source tree.
  */
 
 package com.facebook.react.bridge;
 
-import javax.annotation.Nullable;
-
-import com.facebook.soloader.SoLoader;
+import com.facebook.jni.HybridData;
 import com.facebook.proguard.annotations.DoNotStrip;
+import javax.annotation.Nullable;
 
 /**
  * JavaScript executor that delegates JS calls processed by native code back to a java version
@@ -24,11 +21,7 @@ import com.facebook.proguard.annotations.DoNotStrip;
  */
 @DoNotStrip
 public class ProxyJavaScriptExecutor extends JavaScriptExecutor {
-  static {
-    ReactBridge.staticInit();
-  }
-
-  public static class Factory implements JavaScriptExecutor.Factory {
+  public static class Factory implements JavaScriptExecutorFactory {
     private final JavaJSExecutor.Factory mJavaJSExecutorFactory;
 
     public Factory(JavaJSExecutor.Factory javaJSExecutorFactory) {
@@ -36,9 +29,13 @@ public class ProxyJavaScriptExecutor extends JavaScriptExecutor {
     }
 
     @Override
-    public JavaScriptExecutor create(WritableNativeMap jscConfig) throws Exception {
+    public JavaScriptExecutor create() throws Exception {
       return new ProxyJavaScriptExecutor(mJavaJSExecutorFactory.create());
     }
+  }
+
+  static {
+    ReactBridge.staticInit();
   }
 
   private @Nullable JavaJSExecutor mJavaJSExecutor;
@@ -49,8 +46,8 @@ public class ProxyJavaScriptExecutor extends JavaScriptExecutor {
    * javascript calls
    */
   public ProxyJavaScriptExecutor(JavaJSExecutor executor) {
+    super(initHybrid(executor));
     mJavaJSExecutor = executor;
-    initialize(executor);
   }
 
   @Override
@@ -61,6 +58,10 @@ public class ProxyJavaScriptExecutor extends JavaScriptExecutor {
     }
   }
 
-  private native void initialize(JavaJSExecutor executor);
+  @Override
+  public String getName() {
+    return "ProxyJavaScriptExecutor";
+  }
 
+  private native static HybridData initHybrid(JavaJSExecutor executor);
 }

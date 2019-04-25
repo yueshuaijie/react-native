@@ -1,33 +1,32 @@
 /**
- * Copyright (c) 2015-present, Facebook, Inc.
- * All rights reserved.
+ * Copyright (c) Facebook, Inc. and its affiliates.
  *
- * This source code is licensed under the BSD-style license found in the
- * LICENSE file in the root directory of this source tree. An additional grant
- * of patent rights can be found in the PATENTS file in the same directory.
+ * This source code is licensed under the MIT license found in the
+ * LICENSE file in the root directory of this source tree.
  */
 
 package com.facebook.react.views.image;
 
-import javax.annotation.Nullable;
-
-import java.util.Map;
-
 import android.graphics.Color;
 import android.graphics.PorterDuff.Mode;
-
-import com.facebook.csslayout.CSSConstants;
 import com.facebook.drawee.backends.pipeline.Fresco;
 import com.facebook.drawee.controller.AbstractDraweeControllerBuilder;
+import com.facebook.react.bridge.JSApplicationIllegalArgumentException;
 import com.facebook.react.bridge.ReadableArray;
+import com.facebook.react.bridge.ReadableMap;
 import com.facebook.react.common.MapBuilder;
+import com.facebook.react.module.annotations.ReactModule;
 import com.facebook.react.uimanager.PixelUtil;
 import com.facebook.react.uimanager.SimpleViewManager;
 import com.facebook.react.uimanager.ThemedReactContext;
 import com.facebook.react.uimanager.ViewProps;
 import com.facebook.react.uimanager.annotations.ReactProp;
 import com.facebook.react.uimanager.annotations.ReactPropGroup;
+import com.facebook.yoga.YogaConstants;
+import java.util.Map;
+import javax.annotation.Nullable;
 
+@ReactModule(name = ReactImageManager.REACT_CLASS)
 public class ReactImageManager extends SimpleViewManager<ReactImageView> {
 
   public static final String REACT_CLASS = "RCTImageView";
@@ -38,12 +37,20 @@ public class ReactImageManager extends SimpleViewManager<ReactImageView> {
   }
 
   private @Nullable AbstractDraweeControllerBuilder mDraweeControllerBuilder;
+  private @Nullable GlobalImageLoadListener mGlobalImageLoadListener;
   private final @Nullable Object mCallerContext;
 
   public ReactImageManager(
+      AbstractDraweeControllerBuilder draweeControllerBuilder, Object callerContext) {
+    this(draweeControllerBuilder, null, callerContext);
+  }
+
+  public ReactImageManager(
       AbstractDraweeControllerBuilder draweeControllerBuilder,
+      @Nullable GlobalImageLoadListener globalImageLoadListener,
       Object callerContext) {
     mDraweeControllerBuilder = draweeControllerBuilder;
+    mGlobalImageLoadListener = globalImageLoadListener;
     mCallerContext = callerContext;
   }
 
@@ -67,15 +74,24 @@ public class ReactImageManager extends SimpleViewManager<ReactImageView> {
   @Override
   public ReactImageView createViewInstance(ThemedReactContext context) {
     return new ReactImageView(
-        context,
-        getDraweeControllerBuilder(),
-        getCallerContext());
+        context, getDraweeControllerBuilder(), mGlobalImageLoadListener, getCallerContext());
   }
 
   // In JS this is Image.props.source
   @ReactProp(name = "src")
   public void setSource(ReactImageView view, @Nullable ReadableArray sources) {
     view.setSource(sources);
+  }
+
+  @ReactProp(name = "blurRadius")
+  public void setBlurRadius(ReactImageView view, float blurRadius) {
+    view.setBlurRadius(blurRadius);
+  }
+
+  // In JS this is Image.props.defaultSource
+  @ReactProp(name = "defaultSrc")
+  public void setDefaultSource(ReactImageView view, @Nullable String source) {
+    view.setDefaultSource(source);
   }
 
   // In JS this is Image.props.loadingIndicatorSource.uri
@@ -93,7 +109,7 @@ public class ReactImageManager extends SimpleViewManager<ReactImageView> {
     }
   }
 
-  @ReactProp(name = "overlayColor")
+  @ReactProp(name = "overlayColor", customType = "Color")
   public void setOverlayColor(ReactImageView view, @Nullable Integer overlayColor) {
     if (overlayColor == null) {
       view.setOverlayColor(Color.TRANSPARENT);
@@ -113,9 +129,9 @@ public class ReactImageManager extends SimpleViewManager<ReactImageView> {
       ViewProps.BORDER_TOP_RIGHT_RADIUS,
       ViewProps.BORDER_BOTTOM_RIGHT_RADIUS,
       ViewProps.BORDER_BOTTOM_LEFT_RADIUS
-  }, defaultFloat = CSSConstants.UNDEFINED)
+  }, defaultFloat = YogaConstants.UNDEFINED)
   public void setBorderRadius(ReactImageView view, int index, float borderRadius) {
-    if (!CSSConstants.isUndefined(borderRadius)) {
+    if (!YogaConstants.isUndefined(borderRadius)) {
       borderRadius = PixelUtil.toPixelFromDIP(borderRadius);
     }
 
@@ -129,6 +145,20 @@ public class ReactImageManager extends SimpleViewManager<ReactImageView> {
   @ReactProp(name = ViewProps.RESIZE_MODE)
   public void setResizeMode(ReactImageView view, @Nullable String resizeMode) {
     view.setScaleType(ImageResizeMode.toScaleType(resizeMode));
+    view.setTileMode(ImageResizeMode.toTileMode(resizeMode));
+  }
+
+  @ReactProp(name = ViewProps.RESIZE_METHOD)
+  public void setResizeMethod(ReactImageView view, @Nullable String resizeMethod) {
+    if (resizeMethod == null || "auto".equals(resizeMethod)) {
+      view.setResizeMethod(ImageResizeMethod.AUTO);
+    } else if ("resize".equals(resizeMethod)) {
+      view.setResizeMethod(ImageResizeMethod.RESIZE);
+    } else if ("scale".equals(resizeMethod)) {
+      view.setResizeMethod(ImageResizeMethod.SCALE);
+    } else {
+      throw new JSApplicationIllegalArgumentException("Invalid resize method: '" + resizeMethod+ "'");
+    }
   }
 
   @ReactProp(name = "tintColor", customType = "Color")
@@ -155,6 +185,11 @@ public class ReactImageManager extends SimpleViewManager<ReactImageView> {
     view.setShouldNotifyLoadEvents(shouldNotifyLoadEvents);
   }
 
+  @ReactProp(name = "headers")
+  public void setHeaders(ReactImageView view, ReadableMap headers) {
+    view.setHeaders(headers);
+  }
+
   @Override
   public @Nullable Map getExportedCustomDirectEventTypeConstants() {
     return MapBuilder.of(
@@ -162,6 +197,8 @@ public class ReactImageManager extends SimpleViewManager<ReactImageView> {
         MapBuilder.of("registrationName", "onLoadStart"),
       ImageLoadEvent.eventNameForType(ImageLoadEvent.ON_LOAD),
         MapBuilder.of("registrationName", "onLoad"),
+      ImageLoadEvent.eventNameForType(ImageLoadEvent.ON_ERROR),
+        MapBuilder.of("registrationName", "onError"),
       ImageLoadEvent.eventNameForType(ImageLoadEvent.ON_LOAD_END),
         MapBuilder.of("registrationName", "onLoadEnd"));
   }

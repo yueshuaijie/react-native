@@ -1,10 +1,8 @@
 /**
- * Copyright (c) 2015-present, Facebook, Inc.
- * All rights reserved.
+ * Copyright (c) Facebook, Inc. and its affiliates.
  *
- * This source code is licensed under the BSD-style license found in the
- * LICENSE file in the root directory of this source tree. An additional grant
- * of patent rights can be found in the PATENTS file in the same directory.
+ * This source code is licensed under the MIT license found in the
+ * LICENSE file in the root directory of this source tree.
  */
 
 #import "RCTWebView.h"
@@ -21,12 +19,15 @@
 
 NSString *const RCTJSNavigationScheme = @"react-js-navigation";
 
+static NSString *const kPostMessageHost = @"postMessage";
+
 @interface RCTWebView () <UIWebViewDelegate, RCTAutoInsetsProtocol>
 
 @property (nonatomic, copy) RCTDirectEventBlock onLoadingStart;
 @property (nonatomic, copy) RCTDirectEventBlock onLoadingFinish;
 @property (nonatomic, copy) RCTDirectEventBlock onLoadingError;
 @property (nonatomic, copy) RCTDirectEventBlock onShouldStartLoadWithRequest;
+@property (nonatomic, copy) RCTDirectEventBlock onMessage;
 
 @end
 
@@ -49,6 +50,11 @@ NSString *const RCTJSNavigationScheme = @"react-js-navigation";
     _contentInset = UIEdgeInsetsZero;
     _webView = [[UIWebView alloc] initWithFrame:self.bounds];
     _webView.delegate = self;
+#if defined(__IPHONE_OS_VERSION_MAX_ALLOWED) && __IPHONE_OS_VERSION_MAX_ALLOWED >= 110000 /* __IPHONE_11_0 */
+    if ([_webView.scrollView respondsToSelector:@selector(setContentInsetAdjustmentBehavior:)]) {
+      _webView.scrollView.contentInsetAdjustmentBehavior = UIScrollViewContentInsetAdjustmentNever;
+    }
+#endif
     [self addSubview:_webView];
   }
   return self;
@@ -82,12 +88,22 @@ RCT_NOT_IMPLEMENTED(- (instancetype)initWithCoder:(NSCoder *)aDecoder)
   [_webView stopLoading];
 }
 
-- (void)canGoBack:(RCTResponseSenderBlock)callback {
-    if (callback) {
-        callback(@[@([_webView canGoBack])]);
-    }
+- (void)postMessage:(NSString *)message
+{
+  NSDictionary *eventInitDict = @{
+    @"data": message,
+  };
+  NSString *source = [NSString
+    stringWithFormat:@"document.dispatchEvent(new MessageEvent('message', %@));",
+    RCTJSONStringify(eventInitDict, NULL)
+  ];
+  [_webView stringByEvaluatingJavaScriptFromString:source];
 }
 
+- (void)injectJavaScript:(NSString *)script
+{
+  [_webView stringByEvaluatingJavaScriptFromString:script];
+}
 
 - (void)setSource:(NSDictionary *)source
 {
@@ -201,7 +217,6 @@ RCT_NOT_IMPLEMENTED(- (instancetype)initWithCoder:(NSCoder *)aDecoder)
     };
   });
 
-
   // skip this for the JS Navigation handler
   if (!isJSNavigation && _onShouldStartLoadWithRequest) {
     NSMutableDictionary<NSString *, id> *event = [self baseEvent];
@@ -216,20 +231,6 @@ RCT_NOT_IMPLEMENTED(- (instancetype)initWithCoder:(NSCoder *)aDecoder)
     }
   }
 
-    NSString *requestUrl = [request.URL absoluteString];
-    if (![requestUrl hasPrefix:@"http"] && ![requestUrl hasPrefix:@"https"]) {
-        NSArray *schemeArray = [[NSBundle mainBundle] infoDictionary] [@"LSApplicationQueriesSchemes"];
-        for (NSString * scheme in schemeArray) {
-            if ([requestUrl hasPrefix:[NSString stringWithFormat:@"%@://", scheme]]) {
-                if ([[UIApplication sharedApplication] canOpenURL:[NSURL URLWithString:requestUrl]]) {
-                    return YES;
-                } else {
-                    return NO;
-                }
-            }
-        }
-    }
-
   if (_onLoadingStart) {
     // We have this check to filter out iframe requests and whatnot
     BOOL isTopFrame = [request.URL isEqual:request.mainDocumentURL];
@@ -241,6 +242,23 @@ RCT_NOT_IMPLEMENTED(- (instancetype)initWithCoder:(NSCoder *)aDecoder)
       }];
       _onLoadingStart(event);
     }
+  }
+
+  if (isJSNavigation && [request.URL.host isEqualToString:kPostMessageHost]) {
+    NSString *data = request.URL.query;
+    data = [data stringByReplacingOccurrencesOfString:@"+" withString:@" "];
+    data = [data stringByAddingPercentEncodingWithAllowedCharacters:NSCharacterSet.URLQueryAllowedCharacterSet];
+
+    NSMutableDictionary<NSString *, id> *event = [self baseEvent];
+    [event addEntriesFromDictionary: @{
+      @"data": data,
+    }];
+
+    NSString *source = @"document.dispatchEvent(new MessageEvent('message:received'));";
+
+    [_webView stringByEvaluatingJavaScriptFromString:source];
+
+    _onMessage(event);
   }
 
   // JS Navigation handler
@@ -258,6 +276,14 @@ RCT_NOT_IMPLEMENTED(- (instancetype)initWithCoder:(NSCoder *)aDecoder)
       return;
     }
 
+    if ([error.domain isEqualToString:@"WebKitErrorDomain"] && error.code == 102) {
+      // Error code 102 "Frame load interrupted" is raised by the UIWebView if
+      // its delegate returns FALSE from webView:shouldStartLoadWithRequest:navigationType
+      // when the URL is from an http redirect. This is a common pattern when
+      // implementing OAuth with a WebView.
+      return;
+    }
+
     NSMutableDictionary<NSString *, id> *event = [self baseEvent];
     [event addEntriesFromDictionary:@{
       @"domain": error.domain,
@@ -270,6 +296,44 @@ RCT_NOT_IMPLEMENTED(- (instancetype)initWithCoder:(NSCoder *)aDecoder)
 
 - (void)webViewDidFinishLoad:(UIWebView *)webView
 {
+  if (_messagingEnabled) {
+    #if RCT_DEV
+    // See isNative in lodash
+    NSString *testPostMessageNative = @"String(window.postMessage) === String(Object.hasOwnProperty).replace('hasOwnProperty', 'postMessage')";
+    BOOL postMessageIsNative = [
+      [webView stringByEvaluatingJavaScriptFromString:testPostMessageNative]
+      isEqualToString:@"true"
+    ];
+    if (!postMessageIsNative) {
+      RCTLogError(@"Setting onMessage on a WebView overrides existing values of window.postMessage, but a previous value was defined");
+    }
+    #endif
+    NSString *source = [NSString stringWithFormat:
+      @"(function() {"
+        "window.originalPostMessage = window.postMessage;"
+
+        "var messageQueue = [];"
+        "var messagePending = false;"
+
+        "function processQueue() {"
+          "if (!messageQueue.length || messagePending) return;"
+          "messagePending = true;"
+          "window.location = '%@://%@?' + encodeURIComponent(messageQueue.shift());"
+        "}"
+
+        "window.postMessage = function(data) {"
+          "messageQueue.push(String(data));"
+          "processQueue();"
+        "};"
+
+        "document.addEventListener('message:received', function(e) {"
+          "messagePending = false;"
+          "processQueue();"
+        "});"
+      "})();", RCTJSNavigationScheme, kPostMessageHost
+    ];
+    [webView stringByEvaluatingJavaScriptFromString:source];
+  }
   if (_injectedJavaScript != nil) {
     NSString *jsEvaluationValue = [webView stringByEvaluatingJavaScriptFromString:_injectedJavaScript];
 
@@ -283,11 +347,5 @@ RCT_NOT_IMPLEMENTED(- (instancetype)initWithCoder:(NSCoder *)aDecoder)
     _onLoadingFinish([self baseEvent]);
   }
 }
-
-- (void)injectJavaScript:(NSString *)script
-{
-    [_webView stringByEvaluatingJavaScriptFromString:script];
-}
-
 
 @end

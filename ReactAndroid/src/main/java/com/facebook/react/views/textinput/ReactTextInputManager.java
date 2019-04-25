@@ -1,24 +1,24 @@
 /**
- * Copyright (c) 2015-present, Facebook, Inc.
- * All rights reserved.
+ * Copyright (c) Facebook, Inc. and its affiliates.
  *
- * This source code is licensed under the BSD-style license found in the
- * LICENSE file in the root directory of this source tree. An additional grant
- * of patent rights can be found in the PATENTS file in the same directory.
+ * This source code is licensed under the MIT license found in the
+ * LICENSE file in the root directory of this source tree.
  */
 
 package com.facebook.react.views.textinput;
 
-import javax.annotation.Nullable;
+import static android.view.View.FOCUS_FORWARD;
 
-import java.util.LinkedList;
-import java.util.Map;
-
+import android.annotation.TargetApi;
 import android.graphics.PorterDuff;
 import android.graphics.Typeface;
+import android.graphics.drawable.Drawable;
+import android.os.Build;
+import android.support.v4.content.ContextCompat;
 import android.text.Editable;
 import android.text.InputFilter;
 import android.text.InputType;
+import android.text.Layout;
 import android.text.Spannable;
 import android.text.TextWatcher;
 import android.util.TypedValue;
@@ -27,47 +27,75 @@ import android.view.KeyEvent;
 import android.view.View;
 import android.view.inputmethod.EditorInfo;
 import android.widget.TextView;
-
+import com.facebook.common.logging.FLog;
 import com.facebook.infer.annotation.Assertions;
 import com.facebook.react.bridge.JSApplicationIllegalArgumentException;
 import com.facebook.react.bridge.ReactContext;
 import com.facebook.react.bridge.ReadableArray;
+import com.facebook.react.bridge.ReadableMap;
+import com.facebook.react.bridge.UIManager;
 import com.facebook.react.common.MapBuilder;
-import com.facebook.react.common.SystemClock;
+import com.facebook.react.module.annotations.ReactModule;
 import com.facebook.react.uimanager.BaseViewManager;
 import com.facebook.react.uimanager.LayoutShadowNode;
 import com.facebook.react.uimanager.PixelUtil;
+import com.facebook.react.uimanager.Spacing;
 import com.facebook.react.uimanager.ThemedReactContext;
 import com.facebook.react.uimanager.UIManagerModule;
 import com.facebook.react.uimanager.ViewDefaults;
 import com.facebook.react.uimanager.ViewProps;
 import com.facebook.react.uimanager.annotations.ReactProp;
+import com.facebook.react.uimanager.annotations.ReactPropGroup;
 import com.facebook.react.uimanager.events.EventDispatcher;
 import com.facebook.react.views.imagehelper.ResourceDrawableIdHelper;
+import com.facebook.react.views.scroll.ScrollEvent;
+import com.facebook.react.views.scroll.ScrollEventType;
 import com.facebook.react.views.text.DefaultStyleValuesUtil;
+import com.facebook.react.views.text.ReactFontManager;
 import com.facebook.react.views.text.ReactTextUpdate;
 import com.facebook.react.views.text.TextInlineImageSpan;
+import com.facebook.yoga.YogaConstants;
+import java.lang.reflect.Field;
+import java.util.LinkedList;
+import java.util.Map;
+import javax.annotation.Nullable;
 
 /**
  * Manages instances of TextInput.
  */
+@ReactModule(name = ReactTextInputManager.REACT_CLASS)
 public class ReactTextInputManager extends BaseViewManager<ReactEditText, LayoutShadowNode> {
+  public static final String TAG = ReactTextInputManager.class.getSimpleName();
+  protected static final String REACT_CLASS = "AndroidTextInput";
 
-  /* package */ static final String REACT_CLASS = "AndroidTextInput";
+  private static final int[] SPACING_TYPES = {
+      Spacing.ALL, Spacing.LEFT, Spacing.RIGHT, Spacing.TOP, Spacing.BOTTOM,
+  };
 
   private static final int FOCUS_TEXT_INPUT = 1;
   private static final int BLUR_TEXT_INPUT = 2;
 
-  private static final int INPUT_TYPE_KEYBOARD_NUMBERED =
-      InputType.TYPE_CLASS_NUMBER | InputType.TYPE_NUMBER_FLAG_DECIMAL |
+  private static final int INPUT_TYPE_KEYBOARD_NUMBER_PAD = InputType.TYPE_CLASS_NUMBER;
+  private static final int INPUT_TYPE_KEYBOARD_DECIMAL_PAD = INPUT_TYPE_KEYBOARD_NUMBER_PAD |
+          InputType.TYPE_NUMBER_FLAG_DECIMAL;
+  private static final int INPUT_TYPE_KEYBOARD_NUMBERED = INPUT_TYPE_KEYBOARD_DECIMAL_PAD |
           InputType.TYPE_NUMBER_FLAG_SIGNED;
+  private static final int PASSWORD_VISIBILITY_FLAG = InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD &
+        ~InputType.TYPE_TEXT_VARIATION_PASSWORD;
+  private static final int KEYBOARD_TYPE_FLAGS = INPUT_TYPE_KEYBOARD_NUMBERED |
+            InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS |
+            InputType.TYPE_CLASS_TEXT | InputType.TYPE_CLASS_PHONE |
+            PASSWORD_VISIBILITY_FLAG;
 
   private static final String KEYBOARD_TYPE_EMAIL_ADDRESS = "email-address";
   private static final String KEYBOARD_TYPE_NUMERIC = "numeric";
+  private static final String KEYBOARD_TYPE_DECIMAL_PAD = "decimal-pad";
+  private static final String KEYBOARD_TYPE_NUMBER_PAD = "number-pad";
   private static final String KEYBOARD_TYPE_PHONE_PAD = "phone-pad";
+  private static final String KEYBOARD_TYPE_VISIBLE_PASSWORD = "visible-password";
   private static final InputFilter[] EMPTY_FILTERS = new InputFilter[0];
   private static final int UNSET = -1;
-  
+
   @Override
   public String getName() {
     return REACT_CLASS;
@@ -78,10 +106,7 @@ public class ReactTextInputManager extends BaseViewManager<ReactEditText, Layout
     ReactEditText editText = new ReactEditText(context);
     int inputType = editText.getInputType();
     editText.setInputType(inputType & (~InputType.TYPE_TEXT_FLAG_MULTI_LINE));
-    editText.setImeOptions(EditorInfo.IME_ACTION_DONE);
-    editText.setTextSize(
-        TypedValue.COMPLEX_UNIT_PX,
-        (int) Math.ceil(PixelUtil.toPixelFromSP(ViewDefaults.FONT_SIZE_SP)));
+    editText.setReturnKeyType("done");
     return editText;
   }
 
@@ -125,6 +150,19 @@ public class ReactTextInputManager extends BaseViewManager<ReactEditText, Layout
             MapBuilder.of(
                 "phasedRegistrationNames",
                 MapBuilder.of("bubbled", "onBlur", "captured", "onBlurCapture")))
+        .put(
+            "topKeyPress",
+            MapBuilder.of(
+                "phasedRegistrationNames",
+                MapBuilder.of("bubbled", "onKeyPress", "captured", "onKeyPressCapture")))
+        .build();
+  }
+
+  @Nullable
+  @Override
+  public Map<String, Object> getExportedCustomDirectEventTypeConstants() {
+    return MapBuilder.<String, Object>builder()
+        .put(ScrollEventType.getJSEventName(ScrollEventType.SCROLL), MapBuilder.of("registrationName", "onScroll"))
         .build();
   }
 
@@ -150,16 +188,15 @@ public class ReactTextInputManager extends BaseViewManager<ReactEditText, Layout
 
   @Override
   public void updateExtraData(ReactEditText view, Object extraData) {
-    if (extraData instanceof float[]) {
-      float[] padding = (float[]) extraData;
+    if (extraData instanceof ReactTextUpdate) {
+      ReactTextUpdate update = (ReactTextUpdate) extraData;
 
       view.setPadding(
-          (int) Math.ceil(padding[0]),
-          (int) Math.ceil(padding[1]),
-          (int) Math.ceil(padding[2]),
-          (int) Math.ceil(padding[3]));
-    } else if (extraData instanceof ReactTextUpdate) {
-      ReactTextUpdate update = (ReactTextUpdate) extraData;
+          (int) update.getPaddingLeft(),
+          (int) update.getPaddingTop(),
+          (int) update.getPaddingRight(),
+          (int) update.getPaddingBottom());
+
       if (update.containsImages()) {
         Spannable spannable = update.getText();
         TextInlineImageSpan.possiblyUpdateInlineImageSpans(spannable, view);
@@ -170,9 +207,7 @@ public class ReactTextInputManager extends BaseViewManager<ReactEditText, Layout
 
   @ReactProp(name = ViewProps.FONT_SIZE, defaultFloat = ViewDefaults.FONT_SIZE_SP)
   public void setFontSize(ReactEditText view, float fontSize) {
-    view.setTextSize(
-        TypedValue.COMPLEX_UNIT_PX,
-        (int) Math.ceil(PixelUtil.toPixelFromSP(fontSize)));
+    view.setFontSize(fontSize);
   }
 
   @ReactProp(name = ViewProps.FONT_FAMILY)
@@ -181,8 +216,16 @@ public class ReactTextInputManager extends BaseViewManager<ReactEditText, Layout
     if (view.getTypeface() != null) {
       style = view.getTypeface().getStyle();
     }
-    Typeface newTypeface = Typeface.create(fontFamily, style);
+    Typeface newTypeface = ReactFontManager.getInstance().getTypeface(
+        fontFamily,
+        style,
+        view.getContext().getAssets());
     view.setTypeface(newTypeface);
+  }
+
+  @ReactProp(name = ViewProps.MAX_FONT_SIZE_MULTIPLIER, defaultFloat = Float.NaN)
+  public void setMaxFontSizeMultiplier(ReactEditText view, float maxFontSizeMultiplier) {
+    view.setMaxFontSizeMultiplier(maxFontSizeMultiplier);
   }
 
   /**
@@ -231,6 +274,35 @@ public class ReactTextInputManager extends BaseViewManager<ReactEditText, Layout
     }
   }
 
+  @ReactProp(name = "selection")
+  public void setSelection(ReactEditText view, @Nullable ReadableMap selection) {
+    if (selection == null) {
+      return;
+    }
+
+    if (selection.hasKey("start") && selection.hasKey("end")) {
+      view.setSelection(selection.getInt("start"), selection.getInt("end"));
+    }
+  }
+
+  @ReactProp(name = "importantForAutofill")
+  public void setImportantForAutofill(ReactEditText view, @Nullable String value) {
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
+      return;
+    }
+    int mode = View.IMPORTANT_FOR_AUTOFILL_AUTO;
+    if ("no".equals(value)) {
+      mode = View.IMPORTANT_FOR_AUTOFILL_NO;
+    } else if ("noExcludeDescendants".equals(value)) {
+      mode = View.IMPORTANT_FOR_AUTOFILL_NO_EXCLUDE_DESCENDANTS;
+    } else if ("yes".equals(value)) {
+      mode = View.IMPORTANT_FOR_AUTOFILL_YES;
+    } else if ("yesExcludeDescendants".equals(value)) {
+      mode = View.IMPORTANT_FOR_AUTOFILL_YES_EXCLUDE_DESCENDANTS;
+    }
+    view.setImportantForAutofill(mode);
+  }
+
   @ReactProp(name = "onSelectionChange", defaultBoolean = false)
   public void setOnSelectionChange(final ReactEditText view, boolean onSelectionChange) {
     if (onSelectionChange) {
@@ -240,9 +312,45 @@ public class ReactTextInputManager extends BaseViewManager<ReactEditText, Layout
     }
   }
 
-  @ReactProp(name = "blurOnSubmit", defaultBoolean = true)
-  public void setBlurOnSubmit(ReactEditText view, boolean blurOnSubmit) {
+  @ReactProp(name = "blurOnSubmit")
+  public void setBlurOnSubmit(ReactEditText view, @Nullable Boolean blurOnSubmit) {
     view.setBlurOnSubmit(blurOnSubmit);
+  }
+
+  @ReactProp(name = "onContentSizeChange", defaultBoolean = false)
+  public void setOnContentSizeChange(final ReactEditText view, boolean onContentSizeChange) {
+    if (onContentSizeChange) {
+      view.setContentSizeWatcher(new ReactContentSizeWatcher(view));
+    } else {
+      view.setContentSizeWatcher(null);
+    }
+  }
+
+  @ReactProp(name = "onScroll", defaultBoolean = false)
+  public void setOnScroll(final ReactEditText view, boolean onScroll) {
+    if (onScroll) {
+      view.setScrollWatcher(new ReactScrollWatcher(view));
+    } else {
+      view.setScrollWatcher(null);
+    }
+  }
+
+  @ReactProp(name = "onKeyPress", defaultBoolean = false)
+  public void setOnKeyPress(final ReactEditText view, boolean onKeyPress) {
+    view.setOnKeyPress(onKeyPress);
+  }
+
+  // Sets the letter spacing as an absolute point size.
+  // This extra handling, on top of what ReactBaseTextShadowNode already does, is required for the
+  // correct display of spacing in placeholder (hint) text.
+  @ReactProp(name = ViewProps.LETTER_SPACING, defaultFloat = 0)
+  public void setLetterSpacing(ReactEditText view, float letterSpacing) {
+    view.setLetterSpacingPt(letterSpacing);
+  }
+
+  @ReactProp(name = ViewProps.ALLOW_FONT_SCALING, defaultBoolean = true)
+  public void setAllowFontScaling(ReactEditText view, boolean allowFontScaling) {
+    view.setAllowFontScaling(allowFontScaling);
   }
 
   @ReactProp(name = "placeholder")
@@ -266,6 +374,62 @@ public class ReactTextInputManager extends BaseViewManager<ReactEditText, Layout
     } else {
       view.setHighlightColor(color);
     }
+
+    setCursorColor(view, color);
+  }
+
+  private void setCursorColor(ReactEditText view, @Nullable Integer color) {
+    // Evil method that uses reflection because there is no public API to changes
+    // the cursor color programmatically.
+    // Based on http://stackoverflow.com/questions/25996032/how-to-change-programatically-edittext-cursor-color-in-android.
+    try {
+      // Get the original cursor drawable resource.
+      Field cursorDrawableResField = TextView.class.getDeclaredField("mCursorDrawableRes");
+      cursorDrawableResField.setAccessible(true);
+      int drawableResId = cursorDrawableResField.getInt(view);
+
+      // The view has no cursor drawable.
+      if (drawableResId == 0) {
+        return;
+      }
+
+      Drawable drawable = ContextCompat.getDrawable(view.getContext(), drawableResId);
+      if (color != null) {
+        drawable.setColorFilter(color, PorterDuff.Mode.SRC_IN);
+      }
+      Drawable[] drawables = {drawable, drawable};
+
+      // Update the current cursor drawable with the new one.
+      Field editorField = TextView.class.getDeclaredField("mEditor");
+      editorField.setAccessible(true);
+      Object editor = editorField.get(view);
+      Field cursorDrawableField = editor.getClass().getDeclaredField("mCursorDrawable");
+      cursorDrawableField.setAccessible(true);
+      cursorDrawableField.set(editor, drawables);
+    } catch (NoSuchFieldException ex) {
+      // Ignore errors to avoid crashing if these private fields don't exist on modified
+      // or future android versions.
+    } catch (IllegalAccessException ex) {}
+  }
+
+  @ReactProp(name= "mostRecentEventCount", defaultInt = 0)
+  public void setMostRecentEventCount(ReactEditText view, int mostRecentEventCount) {
+    view.setMostRecentEventCount(mostRecentEventCount);
+  }
+
+  @ReactProp(name = "caretHidden", defaultBoolean = false)
+  public void setCaretHidden(ReactEditText view, boolean caretHidden) {
+    view.setCursorVisible(!caretHidden);
+  }
+
+  @ReactProp(name = "contextMenuHidden", defaultBoolean = false)
+  public void setContextMenuHidden(ReactEditText view, boolean contextMenuHidden) {
+    final boolean _contextMenuHidden = contextMenuHidden;
+    view.setOnLongClickListener(new View.OnLongClickListener() {
+      public boolean onLongClick(View v) {
+        return _contextMenuHidden;
+      };
+    });
   }
 
   @ReactProp(name = "selectTextOnFocus", defaultBoolean = false)
@@ -284,28 +448,49 @@ public class ReactTextInputManager extends BaseViewManager<ReactEditText, Layout
 
   @ReactProp(name = "underlineColorAndroid", customType = "Color")
   public void setUnderlineColor(ReactEditText view, @Nullable Integer underlineColor) {
+    // Drawable.mutate() can sometimes crash due to an AOSP bug:
+    // See https://code.google.com/p/android/issues/detail?id=191754 for more info
+    Drawable background = view.getBackground();
+    Drawable drawableToMutate = background;
+    if (background.getConstantState() != null) {
+      try {
+        drawableToMutate = background.mutate();
+      } catch (NullPointerException e) {
+        FLog.e(TAG, "NullPointerException when setting underlineColorAndroid for TextInput", e);
+      }
+    }
+
     if (underlineColor == null) {
-      view.getBackground().clearColorFilter();
+      drawableToMutate.clearColorFilter();
     } else {
-      view.getBackground().setColorFilter(underlineColor, PorterDuff.Mode.SRC_IN);
+      drawableToMutate.setColorFilter(underlineColor, PorterDuff.Mode.SRC_IN);
     }
   }
 
   @ReactProp(name = ViewProps.TEXT_ALIGN)
   public void setTextAlign(ReactEditText view, @Nullable String textAlign) {
-    if (textAlign == null || "auto".equals(textAlign)) {
-      view.setGravityHorizontal(Gravity.NO_GRAVITY);
-    } else if ("left".equals(textAlign)) {
-      view.setGravityHorizontal(Gravity.LEFT);
-    } else if ("right".equals(textAlign)) {
-      view.setGravityHorizontal(Gravity.RIGHT);
-    } else if ("center".equals(textAlign)) {
-      view.setGravityHorizontal(Gravity.CENTER_HORIZONTAL);
-    } else if ("justify".equals(textAlign)) {
-      // Fallback gracefully for cross-platform compat instead of error
-      view.setGravityHorizontal(Gravity.LEFT);
+    if ("justify".equals(textAlign)) {
+      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+        view.setJustificationMode(Layout.JUSTIFICATION_MODE_INTER_WORD);
+      }
+      view.setGravityHorizontal(Gravity.START);
     } else {
-      throw new JSApplicationIllegalArgumentException("Invalid textAlign: " + textAlign);
+      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+        view.setJustificationMode(Layout.JUSTIFICATION_MODE_NONE);
+      }
+
+      if (textAlign == null || "auto".equals(textAlign)) {
+        view.setGravityHorizontal(Gravity.NO_GRAVITY);
+      } else if ("left".equals(textAlign)) {
+        view.setGravityHorizontal(Gravity.START);
+      } else if ("right".equals(textAlign)) {
+        view.setGravityHorizontal(Gravity.END);
+      } else if ("center".equals(textAlign)) {
+        view.setGravityHorizontal(Gravity.CENTER_HORIZONTAL);
+      } else {
+        throw new JSApplicationIllegalArgumentException("Invalid textAlign: " + textAlign);
+      }
+
     }
   }
 
@@ -386,6 +571,46 @@ public class ReactTextInputManager extends BaseViewManager<ReactEditText, Layout
     view.setFilters(newFilters);
   }
 
+  @ReactProp(name = "autoComplete")
+  public void setTextContentType(ReactEditText view, @Nullable String autocomplete) {
+    // Autofill hints were added in Android API 26.
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
+      return;
+    }
+
+    if (autocomplete == null) {
+      view.setImportantForAutofill(View.IMPORTANT_FOR_AUTOFILL_NO);
+    } else if ("username".equals(autocomplete)) {
+      view.setAutofillHints(View.AUTOFILL_HINT_USERNAME);
+    } else if ("password".equals(autocomplete)) {
+      view.setAutofillHints(View.AUTOFILL_HINT_PASSWORD);
+    } else if ("email".equals(autocomplete)) {
+      view.setAutofillHints(View.AUTOFILL_HINT_EMAIL_ADDRESS);
+    } else if ("name".equals(autocomplete)) {
+      view.setAutofillHints(View.AUTOFILL_HINT_NAME);
+    } else if ("tel".equals(autocomplete)) {
+      view.setAutofillHints(View.AUTOFILL_HINT_PHONE);
+    } else if ("street-address".equals(autocomplete)) {
+      view.setAutofillHints(View.AUTOFILL_HINT_POSTAL_ADDRESS);
+    } else if ("postal-code".equals(autocomplete)) {
+      view.setAutofillHints(View.AUTOFILL_HINT_POSTAL_CODE);
+    } else if ("cc-number".equals(autocomplete)) {
+      view.setAutofillHints(View.AUTOFILL_HINT_CREDIT_CARD_NUMBER);
+    } else if ("cc-csc".equals(autocomplete)) {
+      view.setAutofillHints(View.AUTOFILL_HINT_CREDIT_CARD_SECURITY_CODE);
+    } else if ("cc-exp".equals(autocomplete)) {
+      view.setAutofillHints(View.AUTOFILL_HINT_CREDIT_CARD_EXPIRATION_DATE);
+    } else if ("cc-exp-month".equals(autocomplete)) {
+      view.setAutofillHints(View.AUTOFILL_HINT_CREDIT_CARD_EXPIRATION_MONTH);
+    } else if ("cc-exp-year".equals(autocomplete)) {
+      view.setAutofillHints(View.AUTOFILL_HINT_CREDIT_CARD_EXPIRATION_YEAR);
+    } else if ("off".equals(autocomplete)) {
+      view.setImportantForAutofill(View.IMPORTANT_FOR_AUTOFILL_NO);
+    } else {
+      throw new JSApplicationIllegalArgumentException("Invalid autocomplete option: " + autocomplete);
+    }
+  }
+
   @ReactProp(name = "autoCorrect")
   public void setAutoCorrect(ReactEditText view, @Nullable Boolean autoCorrect) {
     // clear auto correct flags, set SUGGESTIONS or NO_SUGGESTIONS depending on value
@@ -430,44 +655,34 @@ public class ReactTextInputManager extends BaseViewManager<ReactEditText, Layout
     int flagsToSet = InputType.TYPE_CLASS_TEXT;
     if (KEYBOARD_TYPE_NUMERIC.equalsIgnoreCase(keyboardType)) {
       flagsToSet = INPUT_TYPE_KEYBOARD_NUMBERED;
+    } else if (KEYBOARD_TYPE_NUMBER_PAD.equalsIgnoreCase(keyboardType)) {
+      flagsToSet = INPUT_TYPE_KEYBOARD_NUMBER_PAD;
+    } else if (KEYBOARD_TYPE_DECIMAL_PAD.equalsIgnoreCase(keyboardType)) {
+      flagsToSet = INPUT_TYPE_KEYBOARD_DECIMAL_PAD;
     } else if (KEYBOARD_TYPE_EMAIL_ADDRESS.equalsIgnoreCase(keyboardType)) {
       flagsToSet = InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS | InputType.TYPE_CLASS_TEXT;
     } else if (KEYBOARD_TYPE_PHONE_PAD.equalsIgnoreCase(keyboardType)) {
       flagsToSet = InputType.TYPE_CLASS_PHONE;
+    } else if (KEYBOARD_TYPE_VISIBLE_PASSWORD.equalsIgnoreCase(keyboardType)) {
+      // This will supercede secureTextEntry={false}. If it doesn't, due to the way
+      //  the flags work out, the underlying field will end up a URI-type field.
+      flagsToSet = InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD;
     }
     updateStagedInputTypeFlag(
         view,
-        INPUT_TYPE_KEYBOARD_NUMBERED | InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS |
-            InputType.TYPE_CLASS_TEXT,
+        KEYBOARD_TYPE_FLAGS,
         flagsToSet);
     checkPasswordType(view);
   }
 
   @ReactProp(name = "returnKeyType")
   public void setReturnKeyType(ReactEditText view, String returnKeyType) {
-    switch (returnKeyType) {
-      case "done":
-        view.setImeOptions(EditorInfo.IME_ACTION_DONE);
-        break;
-      case "go":
-        view.setImeOptions(EditorInfo.IME_ACTION_GO);
-        break;
-      case "next":
-        view.setImeOptions(EditorInfo.IME_ACTION_NEXT);
-        break;
-      case "none":
-        view.setImeOptions(EditorInfo.IME_ACTION_NONE);
-        break;
-      case "previous":
-        view.setImeOptions(EditorInfo.IME_ACTION_PREVIOUS);
-        break;
-      case "search":
-        view.setImeOptions(EditorInfo.IME_ACTION_SEARCH);
-        break;
-      case "send":
-        view.setImeOptions(EditorInfo.IME_ACTION_SEND);
-        break;
-    }
+    view.setReturnKeyType(returnKeyType);
+  }
+
+  @ReactProp(name = "disableFullscreenUI", defaultBoolean = false)
+  public void setDisableFullscreenUI(ReactEditText view, boolean disableFullscreenUI) {
+    view.setDisableFullscreenUI(disableFullscreenUI);
   }
 
   private static final int IME_ACTION_ID = 0x670;
@@ -475,6 +690,53 @@ public class ReactTextInputManager extends BaseViewManager<ReactEditText, Layout
   @ReactProp(name = "returnKeyLabel")
   public void setReturnKeyLabel(ReactEditText view, String returnKeyLabel) {
     view.setImeActionLabel(returnKeyLabel, IME_ACTION_ID);
+  }
+
+  @ReactPropGroup(names = {
+      ViewProps.BORDER_RADIUS,
+      ViewProps.BORDER_TOP_LEFT_RADIUS,
+      ViewProps.BORDER_TOP_RIGHT_RADIUS,
+      ViewProps.BORDER_BOTTOM_RIGHT_RADIUS,
+      ViewProps.BORDER_BOTTOM_LEFT_RADIUS
+  }, defaultFloat = YogaConstants.UNDEFINED)
+  public void setBorderRadius(ReactEditText view, int index, float borderRadius) {
+    if (!YogaConstants.isUndefined(borderRadius)) {
+      borderRadius = PixelUtil.toPixelFromDIP(borderRadius);
+    }
+
+    if (index == 0) {
+      view.setBorderRadius(borderRadius);
+    } else {
+      view.setBorderRadius(borderRadius, index - 1);
+    }
+  }
+
+  @ReactProp(name = "borderStyle")
+  public void setBorderStyle(ReactEditText view, @Nullable String borderStyle) {
+    view.setBorderStyle(borderStyle);
+  }
+
+  @ReactPropGroup(names = {
+      ViewProps.BORDER_WIDTH,
+      ViewProps.BORDER_LEFT_WIDTH,
+      ViewProps.BORDER_RIGHT_WIDTH,
+      ViewProps.BORDER_TOP_WIDTH,
+      ViewProps.BORDER_BOTTOM_WIDTH,
+  }, defaultFloat = YogaConstants.UNDEFINED)
+  public void setBorderWidth(ReactEditText view, int index, float width) {
+    if (!YogaConstants.isUndefined(width)) {
+      width = PixelUtil.toPixelFromDIP(width);
+    }
+    view.setBorderWidth(SPACING_TYPES[index], width);
+  }
+
+  @ReactPropGroup(names = {
+      "borderColor", "borderLeftColor", "borderRightColor", "borderTopColor", "borderBottomColor"
+  }, customType = "Color")
+  public void setBorderColor(ReactEditText view, int index, Integer color) {
+    float rgbComponent = color == null ? YogaConstants.UNDEFINED : (float) ((int)color & 0x00FFFFFF);
+    float alphaComponent = color == null ? YogaConstants.UNDEFINED : (float) ((int)color >>> 24);
+    view.setBorderColor(SPACING_TYPES[index], rgbComponent, alphaComponent);
   }
 
   @Override
@@ -551,32 +813,18 @@ public class ReactTextInputManager extends BaseViewManager<ReactEditText, Layout
       if (count == before && newText.equals(oldText)) {
         return;
       }
-      int contentWidth = mEditText.getWidth();
-      int contentHeight = mEditText.getHeight();
-
-      // Use instead size of text content within EditText when available
-      if (mEditText.getLayout() != null) {
-        contentWidth = mEditText.getCompoundPaddingLeft() + mEditText.getLayout().getWidth() +
-            mEditText.getCompoundPaddingRight();
-        contentHeight = mEditText.getCompoundPaddingTop() + mEditText.getLayout().getHeight() +
-            mEditText.getCompoundPaddingTop();
-      }
 
       // The event that contains the event counter and updates it must be sent first.
       // TODO: t7936714 merge these events
       mEventDispatcher.dispatchEvent(
           new ReactTextChangedEvent(
               mEditText.getId(),
-              SystemClock.nanoTime(),
               s.toString(),
-              (int) PixelUtil.toDIPFromPixel(contentWidth),
-              (int) PixelUtil.toDIPFromPixel(contentHeight),
               mEditText.incrementAndGetEventCounter()));
 
       mEventDispatcher.dispatchEvent(
           new ReactTextInputEvent(
               mEditText.getId(),
-              SystemClock.nanoTime(),
               newText,
               oldText,
               start,
@@ -601,18 +849,15 @@ public class ReactTextInputManager extends BaseViewManager<ReactEditText, Layout
             if (hasFocus) {
               eventDispatcher.dispatchEvent(
                   new ReactTextInputFocusEvent(
-                      editText.getId(),
-                      SystemClock.nanoTime()));
+                      editText.getId()));
             } else {
               eventDispatcher.dispatchEvent(
                   new ReactTextInputBlurEvent(
-                      editText.getId(),
-                      SystemClock.nanoTime()));
+                      editText.getId()));
 
               eventDispatcher.dispatchEvent(
                   new ReactTextInputEndEditingEvent(
                       editText.getId(),
-                      SystemClock.nanoTime(),
                       editText.getText().toString()));
             }
           }
@@ -625,24 +870,80 @@ public class ReactTextInputManager extends BaseViewManager<ReactEditText, Layout
             // Any 'Enter' action will do
             if ((actionId & EditorInfo.IME_MASK_ACTION) > 0 ||
                 actionId == EditorInfo.IME_NULL) {
+              boolean blurOnSubmit = editText.getBlurOnSubmit();
+              boolean isMultiline = ((editText.getInputType() &
+                InputType.TYPE_TEXT_FLAG_MULTI_LINE) != 0);
+
+              // Motivation:
+              // * blurOnSubmit && isMultiline => Clear focus; prevent default behaviour (return true);
+              // * blurOnSubmit && !isMultiline => Clear focus; prevent default behaviour (return true);
+              // * !blurOnSubmit && isMultiline => Perform default behaviour (return false);
+              // * !blurOnSubmit && !isMultiline => Prevent default behaviour (return true).
+              // Additionally we always generate a `submit` event.
+
               EventDispatcher eventDispatcher =
                   reactContext.getNativeModule(UIManagerModule.class).getEventDispatcher();
+
               eventDispatcher.dispatchEvent(
                   new ReactTextInputSubmitEditingEvent(
                       editText.getId(),
-                      SystemClock.nanoTime(),
                       editText.getText().toString()));
-            }
-            if (actionId == EditorInfo.IME_ACTION_NEXT ||
-              actionId == EditorInfo.IME_ACTION_PREVIOUS) {
-              if (editText.getBlurOnSubmit()) {
+
+              if (blurOnSubmit) {
                 editText.clearFocus();
               }
-              return true;
+
+              // Prevent default behavior except when we want it to insert a newline.
+              return blurOnSubmit || !isMultiline;
+            } else if (actionId == EditorInfo.IME_ACTION_NEXT) {
+              View v1 = v.focusSearch(FOCUS_FORWARD);
+              if (v1 != null && !v.requestFocus(FOCUS_FORWARD)) {
+                return true;
+              }
+              return false;
             }
-            return !editText.getBlurOnSubmit();
+
+            return true;
           }
         });
+  }
+
+  private class ReactContentSizeWatcher implements ContentSizeWatcher {
+    private ReactEditText mEditText;
+    private EventDispatcher mEventDispatcher;
+    private int mPreviousContentWidth = 0;
+    private int mPreviousContentHeight = 0;
+
+    public ReactContentSizeWatcher(ReactEditText editText) {
+      mEditText = editText;
+      ReactContext reactContext = (ReactContext) editText.getContext();
+      mEventDispatcher = reactContext.getNativeModule(UIManagerModule.class).getEventDispatcher();
+    }
+
+    @Override
+    public void onLayout() {
+      int contentWidth = mEditText.getWidth();
+      int contentHeight = mEditText.getHeight();
+
+      // Use instead size of text content within EditText when available
+      if (mEditText.getLayout() != null) {
+        contentWidth = mEditText.getCompoundPaddingLeft() + mEditText.getLayout().getWidth() +
+          mEditText.getCompoundPaddingRight();
+        contentHeight = mEditText.getCompoundPaddingTop() + mEditText.getLayout().getHeight() +
+          mEditText.getCompoundPaddingBottom();
+      }
+
+      if (contentWidth != mPreviousContentWidth || contentHeight != mPreviousContentHeight) {
+        mPreviousContentHeight = contentHeight;
+        mPreviousContentWidth = contentWidth;
+
+        mEventDispatcher.dispatchEvent(
+          new ReactContentSizeChangedEvent(
+            mEditText.getId(),
+            PixelUtil.toDIPFromPixel(contentWidth),
+            PixelUtil.toDIPFromPixel(contentHeight)));
+      }
+    }
   }
 
   private class ReactSelectionWatcher implements SelectionWatcher {
@@ -667,14 +968,48 @@ public class ReactTextInputManager extends BaseViewManager<ReactEditText, Layout
         mEventDispatcher.dispatchEvent(
             new ReactTextInputSelectionEvent(
                 mReactEditText.getId(),
-                SystemClock.nanoTime(),
                 start,
                 end
-            )
-        );
+            ));
 
         mPreviousSelectionStart = start;
         mPreviousSelectionEnd = end;
+      }
+    }
+  }
+
+  private class ReactScrollWatcher implements ScrollWatcher {
+
+    private ReactEditText mReactEditText;
+    private EventDispatcher mEventDispatcher;
+    private int mPreviousHoriz;
+    private int mPreviousVert;
+
+    public ReactScrollWatcher(ReactEditText editText) {
+      mReactEditText = editText;
+      ReactContext reactContext = (ReactContext) editText.getContext();
+      mEventDispatcher = reactContext.getNativeModule(UIManagerModule.class).getEventDispatcher();
+    }
+
+    @Override
+    public void onScrollChanged(int horiz, int vert, int oldHoriz, int oldVert) {
+      if (mPreviousHoriz != horiz || mPreviousVert != vert) {
+        ScrollEvent event = ScrollEvent.obtain(
+          mReactEditText.getId(),
+          ScrollEventType.SCROLL,
+          horiz,
+          vert,
+          0f, // can't get x velocity
+          0f, // can't get y velocity
+          0, // can't get content width
+          0, // can't get content height
+          mReactEditText.getWidth(),
+          mReactEditText.getHeight());
+
+        mEventDispatcher.dispatchEvent(event);
+
+        mPreviousHoriz = horiz;
+        mPreviousVert = vert;
       }
     }
   }

@@ -1,10 +1,8 @@
 /**
- * Copyright (c) 2015-present, Facebook, Inc.
- * All rights reserved.
+ * Copyright (c) Facebook, Inc. and its affiliates.
  *
- * This source code is licensed under the BSD-style license found in the
- * LICENSE file in the root directory of this source tree. An additional grant
- * of patent rights can be found in the PATENTS file in the same directory.
+ * This source code is licensed under the MIT license found in the
+ * LICENSE file in the root directory of this source tree.
  */
 
 package com.facebook.react.uimanager;
@@ -13,7 +11,6 @@ import android.support.v4.util.Pools;
 
 import com.facebook.react.bridge.Arguments;
 import com.facebook.react.bridge.WritableMap;
-import com.facebook.react.common.SystemClock;
 import com.facebook.react.uimanager.events.Event;
 import com.facebook.react.uimanager.events.RCTEventEmitter;
 
@@ -45,7 +42,7 @@ public class OnLayoutEvent extends Event<OnLayoutEvent> {
   }
 
   protected void init(int viewTag, int x, int y, int width, int height) {
-    super.init(viewTag, SystemClock.nanoTime());
+    super.init(viewTag);
     mX = x;
     mY = y;
     mWidth = width;

@@ -1,9 +1,8 @@
 /**
- * Copyright (c) 2014-present, Facebook, Inc.
- * All rights reserved.
- * This source code is licensed under the BSD-style license found in the
- * LICENSE file in the root directory of this source tree. An additional grant
- * of patent rights can be found in the PATENTS file in the same directory.
+ * Copyright (c) Facebook, Inc. and its affiliates.
+ *
+ * This source code is licensed under the MIT license found in the
+ * LICENSE file in the root directory of this source tree.
  */
 
 package com.facebook.react.tests;
@@ -11,25 +10,25 @@ package com.facebook.react.tests;
 import android.graphics.Color;
 import android.text.style.ForegroundColorSpan;
 import android.util.TypedValue;
+import android.view.KeyEvent;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.inputmethod.EditorInfo;
 import android.widget.EditText;
 
 import com.facebook.react.bridge.JavaScriptModule;
-import com.facebook.react.common.SystemClock;
 import com.facebook.react.testing.ReactAppInstrumentationTestCase;
 import com.facebook.react.testing.ReactInstanceSpecForTest;
+import com.facebook.react.testing.StringRecordingModule;
 import com.facebook.react.uimanager.PixelUtil;
-import com.facebook.react.uimanager.UIManagerModule;
-import com.facebook.react.uimanager.events.EventDispatcher;
 import com.facebook.react.views.textinput.ReactEditText;
-import com.facebook.react.views.textinput.ReactTextChangedEvent;
-import com.facebook.react.views.textinput.ReactTextInputEvent;
 
 /**
  * Test to verify that TextInput renders correctly
  */
 public class TextInputTestCase extends ReactAppInstrumentationTestCase {
+
+  private final StringRecordingModule mRecordingModule = new StringRecordingModule();
 
   private interface TextInputTestModule extends JavaScriptModule {
     void setValueRef(String ref, String value);
@@ -100,9 +99,49 @@ public class TextInputTestCase extends ReactAppInstrumentationTestCase {
     }
   }
 
+  public void testOnSubmitEditing() throws Throwable {
+    String testId = "onSubmitTextInput";
+    ReactEditText reactEditText = getViewByTestId(testId);
+
+    fireEditorActionAndCheckRecording(reactEditText, EditorInfo.IME_ACTION_GO);
+    fireEditorActionAndCheckRecording(reactEditText, EditorInfo.IME_ACTION_DONE);
+    fireEditorActionAndCheckRecording(reactEditText, EditorInfo.IME_ACTION_NEXT);
+    fireEditorActionAndCheckRecording(reactEditText, EditorInfo.IME_ACTION_PREVIOUS);
+    fireEditorActionAndCheckRecording(reactEditText, EditorInfo.IME_ACTION_SEARCH);
+    fireEditorActionAndCheckRecording(reactEditText, EditorInfo.IME_ACTION_SEND);
+    fireEditorActionAndCheckRecording(reactEditText, EditorInfo.IME_ACTION_UNSPECIFIED);
+    fireEditorActionAndCheckRecording(reactEditText, EditorInfo.IME_ACTION_NONE);
+  }
+
+  private void fireEditorActionAndCheckRecording(final ReactEditText reactEditText,
+                                                 final int actionId) throws Throwable {
+    fireEditorActionAndCheckRecording(reactEditText, actionId, true);
+    fireEditorActionAndCheckRecording(reactEditText, actionId, false);
+  }
+
+  private void fireEditorActionAndCheckRecording(final ReactEditText reactEditText,
+                                                 final int actionId,
+                                                 final boolean blurOnSubmit) throws Throwable {
+    mRecordingModule.reset();
+
+    runTestOnUiThread(
+      new Runnable() {
+        @Override
+        public void run() {
+          reactEditText.requestFocusFromJS();
+          reactEditText.setBlurOnSubmit(blurOnSubmit);
+          reactEditText.onEditorAction(actionId);
+        }
+      });
+    waitForBridgeAndUIIdle();
+
+    assertEquals(1, mRecordingModule.getCalls().size());
+    assertEquals(!blurOnSubmit, reactEditText.isFocused());
+  }
+
   /**
    * Test that the mentions input has colors displayed correctly.
-   */
+   * Removed for being flaky in open source, December 2016
   public void testMetionsInputColors() throws Throwable {
     EventDispatcher eventDispatcher =
         getReactContext().getNativeModule(UIManagerModule.class).getEventDispatcher();
@@ -116,7 +155,6 @@ public class TextInputTestCase extends ReactAppInstrumentationTestCase {
     eventDispatcher.dispatchEvent(
         new ReactTextChangedEvent(
             reactEditText.getId(),
-            SystemClock.nanoTime(),
             newText.toString(),
             (int) PixelUtil.toDIPFromPixel(contentWidth),
             (int) PixelUtil.toDIPFromPixel(contentHeight),
@@ -125,7 +163,6 @@ public class TextInputTestCase extends ReactAppInstrumentationTestCase {
     eventDispatcher.dispatchEvent(
         new ReactTextInputEvent(
             reactEditText.getId(),
-            SystemClock.nanoTime(),
             newText.toString(),
             "",
             start,
@@ -150,7 +187,6 @@ public class TextInputTestCase extends ReactAppInstrumentationTestCase {
     eventDispatcher.dispatchEvent(
         new ReactTextChangedEvent(
             reactEditText.getId(),
-            SystemClock.nanoTime(),
             newText.toString(),
             (int) PixelUtil.toDIPFromPixel(contentWidth),
             (int) PixelUtil.toDIPFromPixel(contentHeight),
@@ -159,7 +195,6 @@ public class TextInputTestCase extends ReactAppInstrumentationTestCase {
     eventDispatcher.dispatchEvent(
         new ReactTextInputEvent(
             reactEditText.getId(),
-            SystemClock.nanoTime(),
             moreText,
             "",
             start,
@@ -184,7 +219,6 @@ public class TextInputTestCase extends ReactAppInstrumentationTestCase {
     eventDispatcher.dispatchEvent(
         new ReactTextChangedEvent(
             reactEditText.getId(),
-            SystemClock.nanoTime(),
             newText.toString(),
             (int) PixelUtil.toDIPFromPixel(contentWidth),
             (int) PixelUtil.toDIPFromPixel(contentHeight),
@@ -193,7 +227,6 @@ public class TextInputTestCase extends ReactAppInstrumentationTestCase {
     eventDispatcher.dispatchEvent(
         new ReactTextInputEvent(
             reactEditText.getId(),
-            SystemClock.nanoTime(),
             moreText,
             "",
             start,
@@ -209,11 +242,12 @@ public class TextInputTestCase extends ReactAppInstrumentationTestCase {
     assertEquals(newText.length() - 25, reactEditText.getText().getSpanStart(spans[0]));
     assertEquals(newText.length() - 11, reactEditText.getText().getSpanEnd(spans[0]));
   }
+  */
 
   @Override
   protected ReactInstanceSpecForTest createReactInstanceSpecForTest() {
     return super.createReactInstanceSpecForTest()
-        .addJSModule(TextInputTestModule.class);
+        .addNativeModule(mRecordingModule);
   }
 
   @Override

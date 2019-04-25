@@ -1,72 +1,67 @@
 /**
- * Copyright (c) 2013-present, Facebook, Inc.
- * All rights reserved.
+ * Copyright (c) Facebook, Inc. and its affiliates.
  *
- * This source code is licensed under the BSD-style license found in the
- * LICENSE file in the root directory of this source tree. An additional grant
- * of patent rights can be found in the PATENTS file in the same directory.
+ * This source code is licensed under the MIT license found in the
+ * LICENSE file in the root directory of this source tree.
  *
- * @providesModule SwipeRefreshLayoutTestModule
+ * @format
  */
 
 'use strict';
 
-var BatchedBridge = require('BatchedBridge');
-var React = require('React');
-var RecordingModule = require('NativeModules').SwipeRefreshLayoutRecordingModule;
-var ScrollView = require('ScrollView');
-var RefreshControl = require('RefreshControl');
-var Text = require('Text');
-var TouchableWithoutFeedback = require('TouchableWithoutFeedback');
-var View = require('View');
+const BatchedBridge = require('BatchedBridge');
+const React = require('React');
+const RecordingModule = require('NativeModules')
+  .SwipeRefreshLayoutRecordingModule;
+const ScrollView = require('ScrollView');
+const StyleSheet = require('StyleSheet');
+const RefreshControl = require('RefreshControl');
+const Text = require('Text');
+const TouchableWithoutFeedback = require('TouchableWithoutFeedback');
+const View = require('View');
 
-var Row = React.createClass({
-  getInitialState: function() {
-    return {
-      clicks: 0,
-    };
-  },
+class Row extends React.Component {
+  state = {
+    clicks: 0,
+  };
 
-  render: function() {
+  render() {
     return (
       <TouchableWithoutFeedback onPress={this._onPress}>
         <View>
-          <Text>
-            {this.state.clicks + ' clicks'}
-          </Text>
+          <Text>{this.state.clicks + ' clicks'}</Text>
         </View>
       </TouchableWithoutFeedback>
     );
-  },
+  }
 
-  _onPress: function() {
+  _onPress = () => {
     this.setState({clicks: this.state.clicks + 1});
-  },
-});
+  };
+}
 
-var app = null;
-var SwipeRefreshLayoutTestApp = React.createClass({
-  getInitialState: function() {
-    return {
-      rows: 2,
-    };
-  },
+let app = null;
 
-  componentDidMount: function() {
+class SwipeRefreshLayoutTestApp extends React.Component {
+  state = {
+    rows: 2,
+  };
+
+  componentDidMount() {
     app = this;
-  },
+  }
 
-  render: function() {
-    var rows = [];
-    for (var i = 0; i < this.state.rows; i++) {
+  render() {
+    const rows = [];
+    for (let i = 0; i < this.state.rows; i++) {
       rows.push(<Row key={i} />);
     }
     return (
       <ScrollView
-        style={{flex: 1}}
+        style={styles.container}
         refreshControl={
           <RefreshControl
-            style={{flex: 1}}
+            style={styles.content}
             refreshing={false}
             onRefresh={() => RecordingModule.onRefresh()}
           />
@@ -74,21 +69,30 @@ var SwipeRefreshLayoutTestApp = React.createClass({
         {rows}
       </ScrollView>
     );
-  },
-});
+  }
+}
 
-var SwipeRefreshLayoutTestModule = {
+const SwipeRefreshLayoutTestModule = {
   SwipeRefreshLayoutTestApp,
   setRows: function(rows) {
     if (app != null) {
       app.setState({rows});
     }
-  }
+  },
 };
 
 BatchedBridge.registerCallableModule(
   'SwipeRefreshLayoutTestModule',
-  SwipeRefreshLayoutTestModule
+  SwipeRefreshLayoutTestModule,
 );
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+  },
+  content: {
+    flex: 1,
+  },
+});
 
 module.exports = SwipeRefreshLayoutTestModule;

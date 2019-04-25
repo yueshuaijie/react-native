@@ -1,10 +1,8 @@
 /**
- * Copyright (c) 2015-present, Facebook, Inc.
- * All rights reserved.
- * <p/>
- * This source code is licensed under the BSD-style license found in the
- * LICENSE file in the root directory of this source tree. An additional grant
- * of patent rights can be found in the PATENTS file in the same directory.
+ * Copyright (c) Facebook, Inc. and its affiliates.
+ *
+ * This source code is licensed under the MIT license found in the
+ * LICENSE file in the root directory of this source tree.
  */
 
 package com.facebook.react.modules.statusbar;
@@ -19,29 +17,29 @@ import android.support.v4.view.ViewCompat;
 import android.view.View;
 import android.view.WindowInsets;
 import android.view.WindowManager;
-
-import java.util.Map;
-
-import javax.annotation.Nullable;
-
-import com.facebook.react.bridge.Promise;
+import com.facebook.common.logging.FLog;
+import com.facebook.react.bridge.GuardedRunnable;
+import com.facebook.react.bridge.NativeModule;
 import com.facebook.react.bridge.ReactApplicationContext;
 import com.facebook.react.bridge.ReactContextBaseJavaModule;
 import com.facebook.react.bridge.ReactMethod;
 import com.facebook.react.bridge.UiThreadUtil;
 import com.facebook.react.common.MapBuilder;
+import com.facebook.react.common.ReactConstants;
+import com.facebook.react.module.annotations.ReactModule;
 import com.facebook.react.uimanager.PixelUtil;
+import java.util.Map;
+import javax.annotation.Nullable;
 
 /**
  * {@link NativeModule} that allows changing the appearance of the status bar.
  */
+@ReactModule(name = StatusBarModule.NAME)
 public class StatusBarModule extends ReactContextBaseJavaModule {
 
-  private static final String ERROR_NO_ACTIVITY = "E_NO_ACTIVITY";
-  private static final String ERROR_NO_ACTIVITY_MESSAGE =
-    "Tried to change the status bar while not attached to an Activity";
-
   private static final String HEIGHT_KEY = "HEIGHT";
+  private static final String DEFAULT_BACKGROUND_COLOR_KEY = "DEFAULT_BACKGROUND_COLOR";
+  public static final String NAME = "StatusBarManager";
 
   public StatusBarModule(ReactApplicationContext reactContext) {
     super(reactContext);
@@ -49,77 +47,86 @@ public class StatusBarModule extends ReactContextBaseJavaModule {
 
   @Override
   public String getName() {
-    return "StatusBarManager";
+    return NAME;
   }
 
   @Override
   public @Nullable Map<String, Object> getConstants() {
     final Context context = getReactApplicationContext();
-    final int heightResId = context.getResources().getIdentifier("status_bar_height", "dimen", "android");
+    final Activity activity = getCurrentActivity();
+
+    final int heightResId = context.getResources()
+      .getIdentifier("status_bar_height", "dimen", "android");
     final float height = heightResId > 0 ?
       PixelUtil.toDIPFromPixel(context.getResources().getDimensionPixelSize(heightResId)) :
       0;
+    String statusBarColorString = "black";
+
+    if (activity != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+      final int statusBarColor = activity.getWindow().getStatusBarColor();
+      statusBarColorString = String.format("#%06X", (0xFFFFFF & statusBarColor));
+    }
 
     return MapBuilder.<String, Object>of(
-      HEIGHT_KEY, height
-    );
+      HEIGHT_KEY, height, DEFAULT_BACKGROUND_COLOR_KEY, statusBarColorString);
   }
 
   @ReactMethod
-  public void setColor(final int color, final boolean animated, final Promise res) {
+  public void setColor(final int color, final boolean animated) {
     final Activity activity = getCurrentActivity();
     if (activity == null) {
-      res.reject(ERROR_NO_ACTIVITY, ERROR_NO_ACTIVITY_MESSAGE);
+      FLog.w(ReactConstants.TAG, "StatusBarModule: Ignored status bar change, current activity is null.");
       return;
     }
 
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-      UiThreadUtil.runOnUiThread(
-        new Runnable() {
-          @TargetApi(Build.VERSION_CODES.LOLLIPOP)
-          @Override
-          public void run() {
-            if (animated) {
-              int curColor = activity.getWindow().getStatusBarColor();
-              ValueAnimator colorAnimation = ValueAnimator.ofObject(
-                new ArgbEvaluator(), curColor, color);
 
-              colorAnimation.addUpdateListener(new ValueAnimator.AnimatorUpdateListener() {
-                @Override
-                public void onAnimationUpdate(ValueAnimator animator) {
-                  activity.getWindow().setStatusBarColor((Integer) animator.getAnimatedValue());
-                }
-              });
-              colorAnimation
-                .setDuration(300)
-                .setStartDelay(0);
-              colorAnimation.start();
-            } else {
-              activity.getWindow().setStatusBarColor(color);
+      UiThreadUtil.runOnUiThread(
+          new GuardedRunnable(getReactApplicationContext()) {
+            @TargetApi(Build.VERSION_CODES.LOLLIPOP)
+            @Override
+            public void runGuarded() {
+              activity
+                  .getWindow()
+                  .addFlags(WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS);
+              if (animated) {
+                int curColor = activity.getWindow().getStatusBarColor();
+                ValueAnimator colorAnimation =
+                    ValueAnimator.ofObject(new ArgbEvaluator(), curColor, color);
+
+                colorAnimation.addUpdateListener(
+                    new ValueAnimator.AnimatorUpdateListener() {
+                      @Override
+                      public void onAnimationUpdate(ValueAnimator animator) {
+                        activity
+                            .getWindow()
+                            .setStatusBarColor((Integer) animator.getAnimatedValue());
+                      }
+                    });
+                colorAnimation.setDuration(300).setStartDelay(0);
+                colorAnimation.start();
+              } else {
+                activity.getWindow().setStatusBarColor(color);
+              }
             }
-            res.resolve(null);
-          }
-        }
-      );
-    } else {
-      res.resolve(null);
+          });
     }
   }
 
   @ReactMethod
-  public void setTranslucent(final boolean translucent, final Promise res) {
+  public void setTranslucent(final boolean translucent) {
     final Activity activity = getCurrentActivity();
     if (activity == null) {
-      res.reject(ERROR_NO_ACTIVITY, ERROR_NO_ACTIVITY_MESSAGE);
+      FLog.w(ReactConstants.TAG, "StatusBarModule: Ignored status bar change, current activity is null.");
       return;
     }
 
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
       UiThreadUtil.runOnUiThread(
-        new Runnable() {
+        new GuardedRunnable(getReactApplicationContext()) {
           @TargetApi(Build.VERSION_CODES.LOLLIPOP)
           @Override
-          public void run() {
+          public void runGuarded() {
             // If the status bar is translucent hook into the window insets calculations
             // and consume all the top insets so no padding will be added under the status bar.
             View decorView = activity.getWindow().getDecorView();
@@ -132,8 +139,7 @@ public class StatusBarModule extends ReactContextBaseJavaModule {
                     defaultInsets.getSystemWindowInsetLeft(),
                     0,
                     defaultInsets.getSystemWindowInsetRight(),
-                    defaultInsets.getSystemWindowInsetBottom()
-                  );
+                    defaultInsets.getSystemWindowInsetBottom());
                 }
               });
             } else {
@@ -141,18 +147,16 @@ public class StatusBarModule extends ReactContextBaseJavaModule {
             }
 
             ViewCompat.requestApplyInsets(decorView);
-            res.resolve(null);
           }
-        }
-      );
+        });
     }
   }
 
   @ReactMethod
-  public void setHidden(final boolean hidden, final Promise res) {
+  public void setHidden(final boolean hidden) {
     final Activity activity = getCurrentActivity();
     if (activity == null) {
-      res.reject(ERROR_NO_ACTIVITY, ERROR_NO_ACTIVITY_MESSAGE);
+      FLog.w(ReactConstants.TAG, "StatusBarModule: Ignored status bar change, current activity is null.");
       return;
     }
     UiThreadUtil.runOnUiThread(
@@ -166,10 +170,35 @@ public class StatusBarModule extends ReactContextBaseJavaModule {
             activity.getWindow().addFlags(WindowManager.LayoutParams.FLAG_FORCE_NOT_FULLSCREEN);
             activity.getWindow().clearFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN);
           }
-
-          res.resolve(null);
         }
-      }
-    );
+      });
+  }
+
+  @ReactMethod
+  public void setStyle(@Nullable final String style) {
+    final Activity activity = getCurrentActivity();
+    if (activity == null) {
+      FLog.w(ReactConstants.TAG, "StatusBarModule: Ignored status bar change, current activity is null.");
+      return;
+    }
+
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+      UiThreadUtil.runOnUiThread(
+        new Runnable() {
+          @TargetApi(Build.VERSION_CODES.M)
+          @Override
+          public void run() {
+            View decorView = activity.getWindow().getDecorView();
+            int systemUiVisibilityFlags = decorView.getSystemUiVisibility();
+            if ("dark-content".equals(style)) {
+              systemUiVisibilityFlags |= View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR;
+            } else {
+              systemUiVisibilityFlags &= ~View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR;
+            }
+            decorView.setSystemUiVisibility(systemUiVisibilityFlags);
+          }
+        }
+      );
+    }
   }
 }

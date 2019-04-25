@@ -1,13 +1,14 @@
 /*
- * Copyright (c) 2015-present, Facebook, Inc.
- * All rights reserved.
+ * Copyright (c) Facebook, Inc. and its affiliates.
  *
- * This source code is licensed under the BSD-style license found in the
- * LICENSE file in the root directory of this source tree. An additional grant
- * of patent rights can be found in the PATENTS file in the same directory.
+ * This source code is licensed under the MIT license found in the
+ * LICENSE file in the root directory of this source tree.
  */
 
 #include <jni.h>
+#ifndef DISABLE_CPUCAP
+#include <fb/CpuCapabilities.h>
+#endif
 #include <fb/fbjni.h>
 
 using namespace facebook::jni;
@@ -20,6 +21,9 @@ JNIEXPORT jint JNI_OnLoad(JavaVM* vm, void* reserved) {
     initialize_fbjni();
 #ifndef DISABLE_XPLAT
     initialize_xplatinit();
+#endif
+#ifndef DISABLE_CPUCAP
+    initialize_cpucapabilities();
 #endif
   });
 }

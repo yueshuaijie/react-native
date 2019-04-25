@@ -1,36 +1,25 @@
 /**
- * Copyright (c) 2015-present, Facebook, Inc.
- * All rights reserved.
+ * Copyright (c) Facebook, Inc. and its affiliates.
  *
- * This source code is licensed under the BSD-style license found in the
- * LICENSE file in the root directory of this source tree. An additional grant
- * of patent rights can be found in the PATENTS file in the same directory.
+ * This source code is licensed under the MIT license found in the
+ * LICENSE file in the root directory of this source tree.
  */
 
 #import "RCTBundleURLProvider.h"
-#import "RCTDefines.h"
+
 #import "RCTConvert.h"
+#import "RCTDefines.h"
 
 NSString *const RCTBundleURLProviderUpdatedNotification = @"RCTBundleURLProviderUpdatedNotification";
+
+const NSUInteger kRCTBundleURLProviderDefaultPort = RCT_METRO_PORT;
 
 static NSString *const kRCTJsLocationKey = @"RCT_jsLocation";
 static NSString *const kRCTEnableLiveReloadKey = @"RCT_enableLiveReload";
 static NSString *const kRCTEnableDevKey = @"RCT_enableDev";
 static NSString *const kRCTEnableMinificationKey = @"RCT_enableMinification";
 
-static NSString *const kDefaultPort = @"8081";
-static NSString *ipGuess;
-
 @implementation RCTBundleURLProvider
-
-#if RCT_DEV
-+ (void)initialize
-{
-  NSString *ipPath = [[NSBundle mainBundle] pathForResource:@"ip" ofType:@"txt"];
-  NSString *ip = [NSString stringWithContentsOfFile:ipPath encoding:NSUTF8StringEncoding error:nil];
-  ipGuess = [ip stringByTrimmingCharactersInSet:[NSCharacterSet newlineCharacterSet]];
-}
-#endif
 
 - (instancetype)init
 {
@@ -58,7 +47,6 @@ static NSString *ipGuess;
 - (void)setDefaults
 {
   [[NSUserDefaults standardUserDefaults] registerDefaults:[self defaults]];
-  [self settingsUpdated];
 }
 
 - (void)resetToDefaults
@@ -67,74 +55,127 @@ static NSString *ipGuess;
     [[NSUserDefaults standardUserDefaults] removeObjectForKey:key];
   }
   [self setDefaults];
+  [self settingsUpdated];
 }
 
+static NSURL *serverRootWithHost(NSString *host)
+{
+  return [NSURL URLWithString:
+          [NSString stringWithFormat:@"http://%@:%lu/",
+           host, (unsigned long)kRCTBundleURLProviderDefaultPort]];
+}
+
+#if RCT_DEV
 - (BOOL)isPackagerRunning:(NSString *)host
 {
-  if (RCT_DEV) {
-    NSURL *url = [[NSURL URLWithString:serverRootWithHost(host)] URLByAppendingPathComponent:@"status"];
-    NSURLRequest *request = [NSURLRequest requestWithURL:url];
-    NSURLResponse *response;
-    NSData *data = [NSURLConnection sendSynchronousRequest:request returningResponse:&response error:NULL];
-    NSString *status = [[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding];
-    return [status isEqualToString:@"packager-status:running"];
-  }
-  return NO;
-}
-
-static NSString *serverRootWithHost(NSString *host)
-{
-  return [NSString stringWithFormat:@"http://%@:%@/", host, kDefaultPort];
+  NSURL *url = [serverRootWithHost(host) URLByAppendingPathComponent:@"status"];
+  NSURLRequest *request = [NSURLRequest requestWithURL:url];
+  NSURLResponse *response;
+  NSData *data = [NSURLConnection sendSynchronousRequest:request returningResponse:&response error:NULL];
+  NSString *status = [[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding];
+  return [status isEqualToString:@"packager-status:running"];
 }
 
 - (NSString *)guessPackagerHost
 {
+  static NSString *ipGuess;
+  static dispatch_once_t onceToken;
+  dispatch_once(&onceToken, ^{
+    NSString *ipPath = [[NSBundle mainBundle] pathForResource:@"ip" ofType:@"txt"];
+    ipGuess = [[NSString stringWithContentsOfFile:ipPath encoding:NSUTF8StringEncoding error:nil]
+               stringByTrimmingCharactersInSet:[NSCharacterSet newlineCharacterSet]];
+  });
+
   NSString *host = ipGuess ?: @"localhost";
   if ([self isPackagerRunning:host]) {
     return host;
   }
   return nil;
 }
+#endif
 
-- (NSString *)packagerServerRoot
+- (NSString *)packagerServerHost
 {
   NSString *location = [self jsLocation];
   if (location != nil) {
-    return serverRootWithHost(location);
-  } else {
-    NSString *host = [self guessPackagerHost];
-    if (!host) {
-      return nil;
-    } else {
-      return serverRootWithHost(host);
-    }
+    return location;
   }
+#if RCT_DEV
+  NSString *host = [self guessPackagerHost];
+  if (host) {
+    return host;
+  }
+#endif
+  return nil;
 }
 
-- (NSURL *)packagerServerURL
+- (NSURL *)jsBundleURLForBundleRoot:(NSString *)bundleRoot fallbackResource:(NSString *)resourceName fallbackExtension:(NSString *)extension
 {
-  NSString *root = [self packagerServerRoot];
-  return root ? [NSURL URLWithString:root] : nil;
+  NSString *packagerServerHost = [self packagerServerHost];
+  if (!packagerServerHost) {
+    return [self jsBundleURLForFallbackResource:resourceName fallbackExtension:extension];
+  } else {
+    return [RCTBundleURLProvider jsBundleURLForBundleRoot:bundleRoot
+                                             packagerHost:packagerServerHost
+                                                enableDev:[self enableDev]
+                                       enableMinification:[self enableMinification]];
+  }
 }
 
 - (NSURL *)jsBundleURLForBundleRoot:(NSString *)bundleRoot fallbackResource:(NSString *)resourceName
 {
-  resourceName = resourceName ?: @"main";
-  NSString *serverRoot = [self packagerServerRoot];
-  if (!serverRoot) {
-    return [[NSBundle mainBundle] URLForResource:resourceName withExtension:@"jsbundle"];
-  } else {
-    NSString *fullBundlePath = [serverRoot stringByAppendingFormat:@"%@.bundle", bundleRoot];
-    if ([fullBundlePath hasPrefix:@"http"]) {
-      NSString *dev = [self enableDev] ? @"true" : @"false";
-      NSString *min = [self enableMinification] ? @"true": @"false";
-      fullBundlePath = [fullBundlePath stringByAppendingFormat:@"?platform=ios&dev=%@&minify=%@", dev, min];
-    }
-    return [NSURL URLWithString:fullBundlePath];
-  }
+  return [self jsBundleURLForBundleRoot:bundleRoot fallbackResource:resourceName fallbackExtension:nil];
 }
 
-- (void)updateDefaults:(id)object forKey:(NSString *)key
+- (NSURL *)jsBundleURLForFallbackResource:(NSString *)resourceName
+                        fallbackExtension:(NSString *)extension
+{
+  resourceName = resourceName ?: @"main";
+  extension = extension ?: @"jsbundle";
+  return [[NSBundle mainBundle] URLForResource:resourceName withExtension:extension];
+}
+
+- (NSURL *)resourceURLForResourceRoot:(NSString *)root
+                         resourceName:(NSString *)name
+                    resourceExtension:(NSString *)extension
+                        offlineBundle:(NSBundle *)offlineBundle
+{
+  NSString *packagerServerHost = [self packagerServerHost];
+  if (!packagerServerHost) {
+    // Serve offline bundle (local file)
+    NSBundle *bundle = offlineBundle ?: [NSBundle mainBundle];
+    return [bundle URLForResource:name withExtension:extension];
+  }
+  NSString *path = [NSString stringWithFormat:@"/%@/%@.%@", root, name, extension];
+  return [[self class] resourceURLForResourcePath:path packagerHost:packagerServerHost query:nil];
+}
+
++ (NSURL *)jsBundleURLForBundleRoot:(NSString *)bundleRoot
+                       packagerHost:(NSString *)packagerHost
+                          enableDev:(BOOL)enableDev
+                 enableMinification:(BOOL)enableMinification
+{
+  NSString *path = [NSString stringWithFormat:@"/%@.bundle", bundleRoot];
+  // When we support only iOS 8 and above, use queryItems for a better API.
+  NSString *query = [NSString stringWithFormat:@"platform=ios&dev=%@&minify=%@",
+                      enableDev ? @"true" : @"false",
+                      enableMinification ? @"true": @"false"];
+  return [[self class] resourceURLForResourcePath:path packagerHost:packagerHost query:query];
+}
+
++ (NSURL *)resourceURLForResourcePath:(NSString *)path
+                         packagerHost:(NSString *)packagerHost
+                                query:(NSString *)query
+{
+  NSURLComponents *components = [NSURLComponents componentsWithURL:serverRootWithHost(packagerHost) resolvingAgainstBaseURL:NO];
+  components.path = path;
+  if (query != nil) {
+    components.query = query;
+  }
+  return components.URL;
+}
+
+- (void)updateValue:(id)object forKey:(NSString *)key
 {
   [[NSUserDefaults standardUserDefaults] setObject:object forKey:key];
   [[NSUserDefaults standardUserDefaults] synchronize];
@@ -163,22 +204,22 @@ static NSString *serverRootWithHost(NSString *host)
 
 - (void)setEnableDev:(BOOL)enableDev
 {
-  [self updateDefaults:@(enableDev) forKey:kRCTEnableDevKey];
+  [self updateValue:@(enableDev) forKey:kRCTEnableDevKey];
 }
 
 - (void)setEnableLiveReload:(BOOL)enableLiveReload
 {
-  [self updateDefaults:@(enableLiveReload) forKey:kRCTEnableLiveReloadKey];
+  [self updateValue:@(enableLiveReload) forKey:kRCTEnableLiveReloadKey];
 }
 
 - (void)setJsLocation:(NSString *)jsLocation
 {
-  [self updateDefaults:jsLocation forKey:kRCTJsLocationKey];
+  [self updateValue:jsLocation forKey:kRCTJsLocationKey];
 }
 
 - (void)setEnableMinification:(BOOL)enableMinification
 {
-  [self updateDefaults:@(enableMinification) forKey:kRCTEnableMinificationKey];
+  [self updateValue:@(enableMinification) forKey:kRCTEnableMinificationKey];
 }
 
 + (instancetype)sharedSettings
@@ -190,4 +231,5 @@ static NSString *serverRootWithHost(NSString *host)
   });
   return sharedInstance;
 }
+
 @end
