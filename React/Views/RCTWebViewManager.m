@@ -190,16 +190,4 @@ RCT_EXPORT_METHOD(startLoadWithResult:(BOOL)result lockIdentifier:(NSInteger)loc
   }
 }
 
-RCT_EXPORT_METHOD(injectJavaScript:(nonnull NSNumber *)reactTag script:(NSString *)script)
-{
-    [self.bridge.uiManager addUIBlock:^(__unused RCTUIManager *uiManager, NSDictionary<NSNumber *, RCTWebView *> *viewRegistry) {
-        RCTWebView *view = viewRegistry[reactTag];
-        if (![view isKindOfClass:[RCTWebView class]]) {
-            RCTLogError(@"Invalid view returned from registry, expecting RCTWebView, got: %@", view);
-        } else {
-            [view injectJavaScript:script];
-        }
-    }];
-}
-
 @end

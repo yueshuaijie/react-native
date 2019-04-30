@@ -8,7 +8,7 @@
 
 #import "RCTCustomConfig.h"
 
-@implementation CBGRefreshConfig
+@implementation RCTCustomConfig
 
 + (RCTCustomConfig *)sharedConfig {
     static RCTCustomConfig * sharedConfig = nil;
