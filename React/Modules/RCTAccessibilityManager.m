@@ -140,6 +140,7 @@ RCT_EXPORT_MODULE()
     RCTLogError(@"Can't determinte multiplier for category %@. Using 1.0.", category);
     m = @1.0;
   }
+    m = @1.0;
   return m.doubleValue;
 }
 

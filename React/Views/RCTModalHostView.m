@@ -259,4 +259,8 @@ RCT_NOT_IMPLEMENTED(- (instancetype)initWithCoder:coder)
 }
 #endif
 
+- (BOOL)prefersHomeIndicatorAutoHidden {
+    return YES;
+}
+
 @end
