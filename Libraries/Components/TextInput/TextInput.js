@@ -349,6 +349,11 @@ const TextInput = React.createClass({
      */
     secureTextEntry: PropTypes.bool,
     /**
+     * If `true`, the text input obscures the text entered so that sensitive text
+     * like passwords stay secure. The default value is `false`.
+     */
+    isPureNumber: PropTypes.bool,
+    /**
     * The highlight (and cursor on iOS) color of the text input.
     */
     selectionColor: ColorPropType,

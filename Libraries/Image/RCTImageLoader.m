@@ -437,7 +437,10 @@ static UIImage *RCTResizeImageIfNeeded(UIImage *image,
       if (error) {
         completionHandler(error, nil);
         [[NSNotificationCenter defaultCenter] postNotificationName:RCTImgError object:@{@"url":[request.URL absoluteString], @"info":[error localizedDescription]}];
-        [weakSelf dequeueTasks];
+
+        if (weakSelf) {
+            [weakSelf dequeueTasks];
+        }
         return;
       }
 

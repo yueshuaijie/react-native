@@ -33,6 +33,8 @@ var RCTWebViewManager = require('NativeModules').WebViewManager;
 
 var BGWASH = 'rgba(255,255,255,0.8)';
 var RCT_WEBVIEW_REF = 'webview';
+var Dimensions = require('Dimensions');
+var {height, width} =  Dimensions.get('window');
 
 var WebViewState = keyMirror({
   IDLE: null,
@@ -213,6 +215,7 @@ var WebView = React.createClass({
      * @platform ios
      */
     scrollEnabled: PropTypes.bool,
+    quickModel: PropTypes.bool,
     /**
      * Controls whether to adjust the content inset for web views that are
      * placed behind a navigation bar, tab bar, or toolbar. The default value
@@ -228,6 +231,16 @@ var WebView = React.createClass({
      * Function that is invoked when the `WebView` loading starts or ends.
      */
     onNavigationStateChange: PropTypes.func,
+    /**
+     * A function that is invoked when the webview calls `window.postMessage`.
+     * Setting this property will inject a `postMessage` global into your
+     * webview, but will still call pre-existing values of `postMessage`.
+     *
+     * `window.postMessage` accepts one argument, `data`, which will be
+     * available on the event object, `event.nativeEvent.data`. `data`
+     * must be a string.
+     */
+    onMessage: PropTypes.func,
     /**
      * Boolean value that forces the `WebView` to show the loading view
      * on the first load.
@@ -313,9 +326,14 @@ var WebView = React.createClass({
 
   render: function() {
     var otherView = null;
+    let loadingView = null;
 
     if (this.state.viewState === WebViewState.LOADING) {
-      otherView = (this.props.renderLoading || defaultRenderLoading)();
+      if (!this.props.quickModel || this.props.renderLoading) {
+        otherView = (this.props.renderLoading || defaultRenderLoading)();
+      } else {
+        loadingView = defaultRenderLoading();
+      }
     } else if (this.state.viewState === WebViewState.ERROR) {
       var errorEvent = this.state.lastErrorEvent;
       invariant(
@@ -334,8 +352,7 @@ var WebView = React.createClass({
     }
 
     var webViewStyles = [styles.container, styles.webView, this.props.style];
-    if (this.state.viewState === WebViewState.LOADING ||
-      this.state.viewState === WebViewState.ERROR) {
+    if (this.state.viewState === WebViewState.ERROR || (this.state.viewState === WebViewState.LOADING && (!this.props.quickModel || this.props.renderLoading))) {
       // if we're in either LOADING or ERROR states, don't show the webView
       webViewStyles.push(styles.hidden);
     }
@@ -355,6 +372,8 @@ var WebView = React.createClass({
       source.uri = this.props.url;
     }
 
+    const messagingEnabled = typeof this.props.onMessage === 'function';
+
     var webView =
       <RCTWebView
         ref={RCT_WEBVIEW_REF}
@@ -370,6 +389,8 @@ var WebView = React.createClass({
         onLoadingStart={this._onLoadingStart}
         onLoadingFinish={this._onLoadingFinish}
         onLoadingError={this._onLoadingError}
+        messagingEnabled={messagingEnabled}
+        onMessage={this._onMessage}
         onShouldStartLoadWithRequest={onShouldStartLoadWithRequest}
         scalesPageToFit={this.props.scalesPageToFit}
         allowsInlineMediaPlayback={this.props.allowsInlineMediaPlayback}
@@ -380,6 +401,7 @@ var WebView = React.createClass({
       <View style={styles.container}>
         {webView}
         {otherView}
+        {loadingView}
       </View>
     );
   },
@@ -452,6 +474,38 @@ var WebView = React.createClass({
   },
 
   /**
+   * Posts a message to the web view, which will emit a `message` event.
+   * Accepts one argument, `data`, which must be a string.
+   *
+   * In your webview, you'll need to something like the following.
+   *
+   * ```js
+   * document.addEventListener('message', e => { document.title = e.data; });
+   * ```
+   */
+  postMessage: function(data) {
+    UIManager.dispatchViewManagerCommand(
+      this.getWebViewHandle(),
+      UIManager.RCTWebView.Commands.postMessage,
+      [String(data)]
+    );
+  },
+
+  /**
+  * Injects a javascript string into the referenced WebView. Deliberately does not
+  * return a response because using eval() to return a response breaks this method
+  * on pages with a Content Security Policy that disallows eval(). If you need that
+  * functionality, look into postMessage/onMessage.
+  */
+  injectJavaScript: function(data) {
+    UIManager.dispatchViewManagerCommand(
+      this.getWebViewHandle(),
+      UIManager.RCTWebView.Commands.injectJavaScript,
+      [data]
+    );
+  },
+
+  /**
    * We return an event with a bunch of fields including:
    *  url, title, loading, canGoBack, canGoForward
    */
@@ -496,6 +550,11 @@ var WebView = React.createClass({
     });
     this._updateNavigationState(event);
   },
+
+  _onMessage: function(event: Event)  {
+    var {onMessage} = this.props;
+    onMessage && onMessage(event);
+  },
 });
 
 var RCTWebView = requireNativeComponent('RCTWebView', WebView, {
@@ -503,6 +562,8 @@ var RCTWebView = requireNativeComponent('RCTWebView', WebView, {
     onLoadingStart: true,
     onLoadingError: true,
     onLoadingFinish: true,
+    onMessage: true,
+    messagingEnabled: PropTypes.bool,
   },
 });
 
@@ -531,11 +592,14 @@ var styles = StyleSheet.create({
     flex: 0, // disable 'flex:1' when hiding a View
   },
   loadingView: {
-    backgroundColor: BGWASH,
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    height: 100,
+    height: 30,
+    width: 30,
+    top: height / 2 - 30,
+    left: width / 2 - 15,
+    position: 'absolute',
   },
   webView: {
     backgroundColor: '#ffffff',

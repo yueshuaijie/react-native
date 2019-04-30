@@ -38,12 +38,14 @@ RCT_REMAP_VIEW_PROPERTY(bounces, _webView.scrollView.bounces, BOOL)
 RCT_REMAP_VIEW_PROPERTY(scrollEnabled, _webView.scrollView.scrollEnabled, BOOL)
 RCT_REMAP_VIEW_PROPERTY(decelerationRate, _webView.scrollView.decelerationRate, CGFloat)
 RCT_EXPORT_VIEW_PROPERTY(scalesPageToFit, BOOL)
+RCT_EXPORT_VIEW_PROPERTY(messagingEnabled, BOOL)
 RCT_EXPORT_VIEW_PROPERTY(injectedJavaScript, NSString)
 RCT_EXPORT_VIEW_PROPERTY(contentInset, UIEdgeInsets)
 RCT_EXPORT_VIEW_PROPERTY(automaticallyAdjustContentInsets, BOOL)
 RCT_EXPORT_VIEW_PROPERTY(onLoadingStart, RCTDirectEventBlock)
 RCT_EXPORT_VIEW_PROPERTY(onLoadingFinish, RCTDirectEventBlock)
 RCT_EXPORT_VIEW_PROPERTY(onLoadingError, RCTDirectEventBlock)
+RCT_EXPORT_VIEW_PROPERTY(onMessage, RCTDirectEventBlock)
 RCT_EXPORT_VIEW_PROPERTY(onShouldStartLoadWithRequest, RCTDirectEventBlock)
 RCT_REMAP_VIEW_PROPERTY(allowsInlineMediaPlayback, _webView.allowsInlineMediaPlayback, BOOL)
 RCT_REMAP_VIEW_PROPERTY(mediaPlaybackRequiresUserAction, _webView.mediaPlaybackRequiresUserAction, BOOL)
@@ -109,6 +111,29 @@ RCT_EXPORT_METHOD(canGoBack:(nonnull NSNumber *)reactTag callback:(RCTResponseSe
     }];
 }
 
+RCT_EXPORT_METHOD(postMessage:(nonnull NSNumber *)reactTag message:(NSString *)message)
+{
+  [self.bridge.uiManager addUIBlock:^(__unused RCTUIManager *uiManager, NSDictionary<NSNumber *, RCTWebView *> *viewRegistry) {
+    RCTWebView *view = viewRegistry[reactTag];
+    if (![view isKindOfClass:[RCTWebView class]]) {
+      RCTLogError(@"Invalid view returned from registry, expecting RCTWebView, got: %@", view);
+    } else {
+      [view postMessage:message];
+    }
+  }];
+}
+
+RCT_EXPORT_METHOD(injectJavaScript:(nonnull NSNumber *)reactTag script:(NSString *)script)
+{
+  [self.bridge.uiManager addUIBlock:^(__unused RCTUIManager *uiManager, NSDictionary<NSNumber *, RCTWebView *> *viewRegistry) {
+    RCTWebView *view = viewRegistry[reactTag];
+    if (![view isKindOfClass:[RCTWebView class]]) {
+      RCTLogError(@"Invalid view returned from registry, expecting RCTWebView, got: %@", view);
+    } else {
+      [view injectJavaScript:script];
+    }
+  }];
+}
 
 #pragma mark - Exported synchronous methods
 
@@ -119,8 +144,8 @@ shouldStartLoadForRequest:(NSMutableDictionary<NSString *, id> *)request
   _shouldStartLoadLock = [[NSConditionLock alloc] initWithCondition:arc4random()];
   _shouldStartLoad = YES;
   request[@"lockIdentifier"] = @(_shouldStartLoadLock.condition);
-    
-  if (![request[@"url"] hasPrefix:@"http"] && ![request[@"url"] hasPrefix:@"https"]) {
+
+    if (![request[@"url"] hasPrefix:@"http"] && ![request[@"url"] hasPrefix:@"https"]) {
         NSArray *schemeArray = [[NSBundle mainBundle] infoDictionary] [@"LSApplicationQueriesSchemes"];
         for (NSString * scheme in schemeArray) {
             if ([request[@"url"] hasPrefix:[NSString stringWithFormat:@"%@://", scheme]]) {
@@ -131,9 +156,11 @@ shouldStartLoadForRequest:(NSMutableDictionary<NSString *, id> *)request
                 }
             }
         }
-  }
+
+    }
+
     
-  callback(request);
+    callback(request);
 
   // Block the main thread for a maximum of 250ms until the JS thread returns
   if ([_shouldStartLoadLock lockWhenCondition:0 beforeDate:[NSDate dateWithTimeIntervalSinceNow:.25]]) {
@@ -144,8 +171,9 @@ shouldStartLoadForRequest:(NSMutableDictionary<NSString *, id> *)request
   } else {
     RCTLogWarn(@"Did not receive response to shouldStartLoad in time, defaulting to YES");
     NSString *url = request[@"url"];
-    if ([url rangeOfString:@"native_call"].location != NSNotFound || [url rangeOfString:@"inner_action"].location != NSNotFound || [url rangeOfString:@"native-call"].location != NSNotFound ) {
-        return NO;
+
+    if ([url rangeOfString:@"native_call"].location != NSNotFound || [url rangeOfString:@"inner_action"].location != NSNotFound || [url rangeOfString:@"inner-action"].location != NSNotFound) {
+      return NO;
     }
     return YES;
   }

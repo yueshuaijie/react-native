@@ -21,6 +21,8 @@ const keyMirror = require('fbjs/lib/keyMirror');
 const normalizeColor = require('normalizeColor');
 const queryLayoutByID = require('queryLayoutByID');
 
+const DeviceEventEmitter = require('RCTDeviceEventEmitter');
+
 /**
  * `Touchable`: Taps done right.
  *
@@ -712,13 +714,104 @@ var TouchableMixin = {
 
       var shouldInvokePress =  !IsLongPressingIn[curState] || pressIsLongButStillCallOnPress;
       if (shouldInvokePress && this.touchableHandlePress) {
+        this.retrieveFromNodeChildrensBeforeOnPress();
         this.touchableHandlePress(e);
       }
     }
 
     this.touchableDelayTimeout && clearTimeout(this.touchableDelayTimeout);
     this.touchableDelayTimeout = null;
-  }
+},
+
+  retrieveFromNodeChildrensBeforeOnPress: function () {
+    if(!global.AUTO_LOG_EVENTS || global.autoLogDisabled) return;
+
+    var doEmit = function(emitValue) {
+      DeviceEventEmitter.emit(global.AUTO_LOG_EVENTS.RCT_CLICK_EVENT_TOUCHABLE, emitValue);
+    }
+
+    if(this.props.autoLogValueWillOnPress){
+    let logValue = this.props.autoLogValueWillOnPress();
+    if(logValue){
+      doEmit(logValue);
+          return;
+    }
+    }
+
+    var isValidText = function(item){
+      if(item && item.type && item.type.displayName === 'Text' && item.props.children && item.props.children != ''){
+        let value = item.props.children;
+    if(value.constructor === Array){
+      //handel text combine
+      let textValue = '';
+      value.forEach((theValue) => {
+        if(theValue){
+          if(theValue.constructor === String || theValue.constructor === Number){
+            textValue += theValue;
+          }else if (theValue.constructor === Object) {
+            let childrenTextValue = isValidText(theValue);
+            if(childrenTextValue){
+              textValue += childrenTextValue;
+            }
+          }
+        }
+      });
+      return /^\d*$/.test(textValue) ? false : textValue;
+    }
+        if(value.constructor === Number || (value.constructor === String && /^\d*$/.test(value))){
+          //数字，视作无效value
+          console.log('点击事件捕获无效文案：' + value);
+          return false;
+        }
+        return value;
+      }
+      return false;
+    }
+    var isValidImage = function(item){
+      return item && item.type && item.type.displayName === 'Image' && item.props.source.uri != '';
+    }
+    var isValidViewWithChildren = function(item){
+      if(item && item.constructor === Array){
+        return searchTitleOrImage(item);
+      }
+      return item && item.props  && item.props.children && searchTitleOrImage(item.props.children);
+    }
+
+    var searchTitleOrImage = function(theChildren) {
+      if(theChildren && theChildren.constructor === Array){
+        for (var i = 0; i < theChildren.length; i++) {
+          let item = theChildren[i];
+      let textValue = isValidText(item);
+          if(textValue){
+            doEmit({value: textValue})
+            return true;
+          }
+          if(isValidViewWithChildren(item)){
+            return true;
+          }
+        }
+      }else {
+    let textValue = isValidText(theChildren);
+        if(textValue){
+          doEmit({value: textValue});
+          return true;
+        }
+
+        if(isValidImage(theChildren)){
+          doEmit({source: theChildren.props.source.uri});
+          return true;
+        }
+
+        if(isValidViewWithChildren(theChildren)){
+          return true;
+        }
+      }
+      return false;
+    }
+
+    var children = this.props.children;
+    searchTitleOrImage(children);
+  },
 
 };
 

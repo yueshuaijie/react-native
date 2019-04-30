@@ -128,4 +128,8 @@ Pod::Spec.new do |s|
     ss.preserve_paths = "Libraries/RCTTest/**/*.js"
     ss.frameworks     = "XCTest"
   end
+
+  s.subspec 'RCTCustomConfig' do |ss|
+    ss.source_files   = "Libraries/RCTCustomConfig/*.{h,m}"
+  end
 end

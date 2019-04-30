@@ -142,7 +142,7 @@ class Modal extends React.Component {
         onRequestClose={this.props.onRequestClose}
         onShow={this.props.onShow}
         style={styles.modal}
-        onStartShouldSetResponder={this._shouldSetResponder}
+        onStartShouldSetResponder={this._shouldSetResponder.bind(this)}
         >
         <View style={[styles.container, containerStyles]}>
           {this.props.children}
@@ -151,9 +151,9 @@ class Modal extends React.Component {
     );
   }
 
-  // We don't want any responder events bubbling out of the modal.
+  // We don't want any responder events bubbling out of the modal， unless user define it's value
   _shouldSetResponder(): boolean {
-    return true;
+    return this.props.onStartShouldSetResponder != undefined ? this.props.onStartShouldSetResponder : true;
   }
 }
 

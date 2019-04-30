@@ -496,6 +496,10 @@ const View = React.createClass({
      */
     needsOffscreenAlphaCompositing: PropTypes.bool,
 
+    /**
+     * showLoadingAnimation
+     * @platform iOS
+     */
     showLoadingAnimation: PropTypes.bool,
   },
 
