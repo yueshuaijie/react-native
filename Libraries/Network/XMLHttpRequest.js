@@ -105,6 +105,7 @@ class XMLHttpRequest extends EventTarget(...XHR_EVENTS) {
   _response: string | ?Object;
   _responseType: ResponseType;
   _responseText: string = '';
+  _responseCode: ?number;
   _sent: boolean;
   _url: ?string = null;
   _timedOut: boolean = false;
@@ -127,6 +128,7 @@ class XMLHttpRequest extends EventTarget(...XHR_EVENTS) {
     this._hasError = false;
     this._headers = {};
     this._responseText = '';
+    this._responseCode = null;
     this._responseType = '';
     this._sent = false;
     this._lowerCaseResponseHeaders = {};
@@ -278,11 +280,13 @@ class XMLHttpRequest extends EventTarget(...XHR_EVENTS) {
   __didCompleteResponse(
     requestId: number,
     error: string,
-    timeOutError: boolean
+    timeOutError: boolean,
+    errorCode: number,
   ): void {
     if (requestId === this._requestId) {
       if (error) {
         this._responseText = error;
+        this._responseCode = errorCode;
         this._hasError = true;
         if (timeOutError) {
           this._timedOut = true;
