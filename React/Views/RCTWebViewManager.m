@@ -49,6 +49,7 @@ RCT_EXPORT_VIEW_PROPERTY(onMessage, RCTDirectEventBlock)
 RCT_EXPORT_VIEW_PROPERTY(onShouldStartLoadWithRequest, RCTDirectEventBlock)
 RCT_REMAP_VIEW_PROPERTY(allowsInlineMediaPlayback, _webView.allowsInlineMediaPlayback, BOOL)
 RCT_REMAP_VIEW_PROPERTY(mediaPlaybackRequiresUserAction, _webView.mediaPlaybackRequiresUserAction, BOOL)
+RCT_EXPORT_VIEW_PROPERTY(schemeArr, NSArray)
 
 
 RCT_EXPORT_METHOD(goBack:(nonnull NSNumber *)reactTag)
@@ -150,7 +151,10 @@ shouldStartLoadForRequest:(NSMutableDictionary<NSString *, id> *)request
         for (NSString * scheme in schemeArray) {
             if ([request[@"url"] hasPrefix:[NSString stringWithFormat:@"%@://", scheme]]) {
                 if ([[UIApplication sharedApplication] canOpenURL:[NSURL URLWithString:request[@"url"]]]) {
-                    return YES;
+                    NSString *deposeScheme = [request[@"url"] componentsSeparatedByString:@"://"][0];
+                    if (![webView.schemeArr containsObject:deposeScheme]) {
+                        return YES;
+                    }
                 } else {
                     return NO;
                 }

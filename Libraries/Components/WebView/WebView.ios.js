@@ -277,6 +277,12 @@ var WebView = React.createClass({
      */
     userAgent: PropTypes.string,
 
+
+    /**
+     * callback depose schemeArr, depose these in js side.
+     */
+    schemeArr: PropTypes.array,
+
     /**
      * Boolean that controls whether the web content is scaled to fit
      * the view and enables the user to change the scale. The default value
@@ -395,6 +401,7 @@ var WebView = React.createClass({
         scalesPageToFit={this.props.scalesPageToFit}
         allowsInlineMediaPlayback={this.props.allowsInlineMediaPlayback}
         mediaPlaybackRequiresUserAction={this.props.mediaPlaybackRequiresUserAction}
+        schemeArr={this.props.schemeArr}
       />;
 
     return (
