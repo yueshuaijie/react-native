@@ -20,7 +20,7 @@
 #import "UIView+Private.h"
 #import "UIView+React.h"
 
-#import "CBGRefreshHeader.h"
+#import <CBGRefresh/CBGRefreshHeader.h>
 
 CGFloat const ZINDEX_DEFAULT = 0;
 CGFloat const ZINDEX_STICKY_HEADER = 50;
