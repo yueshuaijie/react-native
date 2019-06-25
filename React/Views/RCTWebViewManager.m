@@ -160,12 +160,7 @@ shouldStartLoadForRequest:(NSMutableDictionary<NSString *, id> *)request
                 }
             }
         }
-        
     }
-
-        
-    }
-
     
     callback(request);
 
