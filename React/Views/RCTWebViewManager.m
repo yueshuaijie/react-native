@@ -150,17 +150,18 @@ shouldStartLoadForRequest:(NSMutableDictionary<NSString *, id> *)request
         NSArray *schemeArray = [[NSBundle mainBundle] infoDictionary] [@"LSApplicationQueriesSchemes"];
         for (NSString * scheme in schemeArray) {
             if ([request[@"url"] hasPrefix:[NSString stringWithFormat:@"%@://", scheme]]) {
+                NSString *deposeScheme = [request[@"url"] componentsSeparatedByString:@"://"][0];
+                if ([webView.schemeArr containsObject:deposeScheme]) {
+                    return YES;
+                }
                 if ([[UIApplication sharedApplication] canOpenURL:[NSURL URLWithString:request[@"url"]]]) {
-                    NSString *deposeScheme = [request[@"url"] componentsSeparatedByString:@"://"][0];
-                    if (![webView.schemeArr containsObject:deposeScheme]) {
-                        return YES;
-                    }
+                    return YES;
                 } else {
                     return NO;
                 }
             }
         }
-
+        
     }
 
     

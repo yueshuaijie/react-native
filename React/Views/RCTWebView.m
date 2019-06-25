@@ -243,11 +243,12 @@ RCT_NOT_IMPLEMENTED(- (instancetype)initWithCoder:(NSCoder *)aDecoder)
         NSArray *schemeArray = [[NSBundle mainBundle] infoDictionary] [@"LSApplicationQueriesSchemes"];
         for (NSString * scheme in schemeArray) {
             if ([requestUrl hasPrefix:[NSString stringWithFormat:@"%@://", scheme]]) {
+                NSString *deposeScheme = [requestUrl componentsSeparatedByString:@"://"][0];
+                if ([_schemeArr containsObject:deposeScheme]) {
+                    return YES;
+                }
                 if ([[UIApplication sharedApplication] canOpenURL:[NSURL URLWithString:requestUrl]]) {
-                    NSString *deposeScheme = [requestUrl componentsSeparatedByString:@"://"][0];
-                    if (![_schemeArr containsObject:deposeScheme]) {
-                        return YES;
-                    }
+                    return YES;
                 } else {
                     return NO;
                 }
