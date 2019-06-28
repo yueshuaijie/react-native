@@ -433,7 +433,9 @@ static UIImage *RCTResizeImageIfNeeded(UIImage *image,
     }
 
     // Download image
-    RCTNetworkTask *task = [_bridge.networking networkTaskWithRequest:request completionBlock:^(NSURLResponse *response, NSData *data, NSError *error) {
+      NSMutableURLRequest *tagRequest = [request mutableCopy];
+      [tagRequest addValue:@"RCTImage" forHTTPHeaderField:@"ref"];
+    RCTNetworkTask *task = [_bridge.networking networkTaskWithRequest:tagRequest completionBlock:^(NSURLResponse *response, NSData *data, NSError *error) {
       if (error) {
         completionHandler(error, nil);
         [[NSNotificationCenter defaultCenter] postNotificationName:RCTImgError object:@{@"url":[request.URL absoluteString], @"info":[error localizedDescription]}];
