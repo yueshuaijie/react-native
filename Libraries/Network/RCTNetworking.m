@@ -405,7 +405,8 @@ RCT_EXPORT_MODULE()
       }
       NSArray *responseJSON = @[task.requestID,
                                 RCTNullIfNil(error.localizedDescription),
-                                error.code == kCFURLErrorTimedOut ? @YES : @NO
+                                error.code == kCFURLErrorTimedOut ? @YES : @NO,
+                                @(error.code)
                                 ];
 
       [self sendEventWithName:@"didCompleteNetworkResponse" body:responseJSON];
