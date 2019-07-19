@@ -436,7 +436,7 @@ static UIImage *RCTResizeImageIfNeeded(UIImage *image,
     RCTNetworkTask *task = [_bridge.networking networkTaskWithRequest:request completionBlock:^(NSURLResponse *response, NSData *data, NSError *error) {
       if (error) {
         completionHandler(error, nil);
-        [[NSNotificationCenter defaultCenter] postNotificationName:RCTImgError object:@{@"url":[request.URL absoluteString], @"info":[error localizedDescription]}];
+        [[NSNotificationCenter defaultCenter] postNotificationName:RCTImgError object:@{@"url":[request.URL absoluteString], @"info":[error localizedDescription], @"code":[NSString stringWithFormat:@"%ld", [error code]]}];
 
         if (weakSelf) {
             [weakSelf dequeueTasks];
@@ -454,7 +454,7 @@ static UIImage *RCTResizeImageIfNeeded(UIImage *image,
          if (isHTTPRequest && [response isMemberOfClass:NSClassFromString(@"NSHTTPURLResponse")])
          {
              if ([(NSHTTPURLResponse *)response statusCode] >= 300) {
-                 [[NSNotificationCenter defaultCenter] postNotificationName:RCTImgError object:@{@"url":[request.URL absoluteString], @"info":[NSString stringWithFormat:@"%d", [(NSHTTPURLResponse *)response statusCode]]}];
+                 [[NSNotificationCenter defaultCenter] postNotificationName:RCTImgError object:@{@"url":[request.URL absoluteString], @"info":[NSString stringWithFormat:@"%d", [(NSHTTPURLResponse *)response statusCode]], @"code":[NSString stringWithFormat:@"%ld", [error code]]}];
              }
          }
 
