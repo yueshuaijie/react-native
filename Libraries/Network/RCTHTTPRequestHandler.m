@@ -10,8 +10,6 @@
 #import "RCTHTTPRequestHandler.h"
 
 @interface RCTHTTPRequestHandler () <NSURLSessionDataDelegate>
-
-@property (nonatomic, assign) NSURLRequest *request;
 @end
 
 @implementation RCTHTTPRequestHandler
@@ -69,7 +67,6 @@ RCT_EXPORT_MODULE()
   NSURLSessionDataTask *task = [_session dataTaskWithRequest:request];
   [_delegates setObject:delegate forKey:task];
   [task resume];
-    self.request = request;
   return task;
 }
 
@@ -152,9 +149,10 @@ didReceiveResponse:(NSURLResponse *)response
     /*
      * 获取原始域名信息。
      */
+    NSURLRequest *request = task.currentRequest;
     NSString* host = [[self.request allHTTPHeaderFields] objectForKey:@"host"];
     if (!host) {
-        host = self.request.URL.host;
+        host = request.URL.host;
     }
     if ([challenge.protectionSpace.authenticationMethod isEqualToString:NSURLAuthenticationMethodServerTrust]) {
         if ([self evaluateServerTrust:challenge.protectionSpace.serverTrust forDomain:host]) {
@@ -169,25 +167,5 @@ didReceiveResponse:(NSURLResponse *)response
     // 对于其他的challenges直接使用默认的验证方案
     completionHandler(disposition,credential);
 }
-
-
-//- (void)URLSession:(NSURLSession *)session didReceiveChallenge:(NSURLAuthenticationChallenge *)challenge completionHandler:(void (^)(NSURLSessionAuthChallengeDisposition, NSURLCredential * _Nullable))completionHandler {
-//    NSLog(@"didReceiveChallenge %@", challenge.protectionSpace);
-//    NSLog(@"调用了最外层");
-//    // 1.判断服务器返回的证书类型, 是否是服务器信任
-//    if ([challenge.protectionSpace.authenticationMethod isEqualToString:NSURLAuthenticationMethodServerTrust]) {
-//        NSLog(@"调用了里面这一层是服务器信任的证书");
-//        /*
-//         NSURLSessionAuthChallengeUseCredential = 0,                     使用证书
-//         NSURLSessionAuthChallengePerformDefaultHandling = 1,            忽略证书(默认的处理方式)
-//         NSURLSessionAuthChallengeCancelAuthenticationChallenge = 2,     忽略书证, 并取消这次请求
-//         NSURLSessionAuthChallengeRejectProtectionSpace = 3,            拒绝当前这一次, 下一次再询问
-//         */
-//        //        NSURLCredential *credential = [NSURLCredential credentialForTrust:challenge.protectionSpace.serverTrust];
-//
-//        NSURLCredential *card = [[NSURLCredential alloc]initWithTrust:challenge.protectionSpace.serverTrust];
-//        completionHandler(NSURLSessionAuthChallengeUseCredential , card);
-//    }
-//}
 
 @end
