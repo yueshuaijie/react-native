@@ -150,7 +150,7 @@ didReceiveResponse:(NSURLResponse *)response
      * 获取原始域名信息。
      */
     NSURLRequest *request = task.currentRequest;
-    NSString* host = [[self.request allHTTPHeaderFields] objectForKey:@"host"];
+    NSString* host = [[request allHTTPHeaderFields] objectForKey:@"host"];
     if (!host) {
         host = request.URL.host;
     }
