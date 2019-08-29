@@ -126,8 +126,6 @@ class XMLHttpRequest extends EventTarget(...XHR_EVENTS) {
 
   upload: XMLHttpRequestEventTarget = new XMLHttpRequestEventTarget();
 
-  disableIncremental: boolean = false;
-
   _requestId: ?number;
   _subscriptions: Array<*>;
 

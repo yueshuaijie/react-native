@@ -584,7 +584,6 @@ static NSDictionary *deviceOrientationEventBody(UIDeviceOrientation orientation)
       if (view.reactLayoutDirection != layoutDirection) {
         view.reactLayoutDirection = layoutDirection;
       }
-
       if (view.isHidden != isHidden) {
         view.hidden = isHidden;
       }
@@ -1542,7 +1541,6 @@ RCT_EXPORT_BLOCKING_SYNCHRONOUS_METHOD(lazilyLoadView:(NSString *)name)
     // which had RCT Prefixes stripped. Lets check one more time...
     module = [self.bridge moduleForName:RCTDropReactPrefixes(moduleName)];
   }
-
   if (!module) {
     return @{};
   }

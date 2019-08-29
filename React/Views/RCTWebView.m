@@ -18,7 +18,6 @@
 #import "UIView+React.h"
 
 NSString *const RCTJSNavigationScheme = @"react-js-navigation";
-NSString *const RCTJSPostMessageHost = @"postMessage";
 
 static NSString *const kPostMessageHost = @"postMessage";
 
@@ -57,10 +56,6 @@ static NSString *const kPostMessageHost = @"postMessage";
     }
 #endif
     [self addSubview:_webView];
-
-    if (@available(iOS 11.0, *)) {
-        _webView.scrollView.contentInsetAdjustmentBehavior = UIScrollViewContentInsetAdjustmentNever;
-    }
   }
   return self;
 }
@@ -227,7 +222,6 @@ RCT_NOT_IMPLEMENTED(- (instancetype)initWithCoder:(NSCoder *)aDecoder)
       @(UIWebViewNavigationTypeOther): @"other",
     };
   });
-
 
   // skip this for the JS Navigation handler
   if (!isJSNavigation && _onShouldStartLoadWithRequest) {

@@ -277,6 +277,23 @@ type IOSProps = $ReadOnly<{|
    * @platform ios
    */
   DEPRECATED_sendUpdatedChildFrames?: ?boolean,
+  /**
+   * When true, shows a pull-to-refresh animation
+   * @platform iOS
+   */
+  enablePullToRefresh?: ?boolean,
+
+  /**
+   * Prop determines to begin or end pull-to-refresh
+   * @platform iOS
+   */
+  isOnPullToRefresh?: ?boolean,
+
+  /**
+   * Action of pull-to-refresh
+   * @platform iOS
+   */
+  onLoadRefreshingAction?: ?Function,
 |}>;
 
 type AndroidProps = $ReadOnly<{|
@@ -302,23 +319,6 @@ type AndroidProps = $ReadOnly<{|
    * @platform android
    */
   scrollPerfTag?: ?string,
-  /**
-     * When true, shows a pull-to-refresh animation
-     * @platform iOS
-     */
-    enablePullToRefresh?: ?boolean,
-
-    /**
-     * Prop determines to begin or end pull-to-refresh
-     * @platform iOS
-     */
-    isOnPullToRefresh?: ?boolean,
-
-    /**
-     * Action of pull-to-refresh
-     * @platform iOS
-     */
-    onLoadRefreshingAction?: ?Function,
   /**
    * Used to override default value of overScroll mode.
    *
@@ -607,167 +607,7 @@ function createScrollResponder(
  * multiple columns, infinite scroll loading, or any number of other features it
  * supports out of the box.
  */
-<<<<<<< HEAD
-const ScrollView = React.createClass({
-  propTypes: {
-    ...View.propTypes,
-    /**
-     * Controls whether iOS should automatically adjust the content inset
-     * for scroll views that are placed behind a navigation bar or
-     * tab bar/ toolbar. The default value is true.
-     * @platform ios
-     */
-    automaticallyAdjustContentInsets: PropTypes.bool,
-    /**
-     * The amount by which the scroll view content is inset from the edges
-     * of the scroll view. Defaults to `{top: 0, left: 0, bottom: 0, right: 0}`.
-     * @platform ios
-     */
-    contentInset: EdgeInsetsPropType,
-    /**
-     * Used to manually set the starting scroll offset.
-     * The default value is `{x: 0, y: 0}`.
-     * @platform ios
-     */
-    contentOffset: PointPropType,
-    /**
-     * When true, the scroll view bounces when it reaches the end of the
-     * content if the content is larger then the scroll view along the axis of
-     * the scroll direction. When false, it disables all bouncing even if
-     * the `alwaysBounce*` props are true. The default value is true.
-     * @platform ios
-     */
-    bounces: PropTypes.bool,
-    endBounces: PropTypes.bool,
-    /**
-     * When true, gestures can drive zoom past min/max and the zoom will animate
-     * to the min/max value at gesture end, otherwise the zoom will not exceed
-     * the limits.
-     * @platform ios
-     */
-    bouncesZoom: PropTypes.bool,
-    /**
-     * When true, the scroll view bounces horizontally when it reaches the end
-     * even if the content is smaller than the scroll view itself. The default
-     * value is true when `horizontal={true}` and false otherwise.
-     * @platform ios
-     */
-    alwaysBounceHorizontal: PropTypes.bool,
-    /**
-     * When true, the scroll view bounces vertically when it reaches the end
-     * even if the content is smaller than the scroll view itself. The default
-     * value is false when `horizontal={true}` and true otherwise.
-     * @platform ios
-     */
-    alwaysBounceVertical: PropTypes.bool,
-    /**
-     * When true, the scroll view automatically centers the content when the
-     * content is smaller than the scroll view bounds; when the content is
-     * larger than the scroll view, this property has no effect. The default
-     * value is false.
-     * @platform ios
-     */
-    centerContent: PropTypes.bool,
-    /**
-     * These styles will be applied to the scroll view content container which
-     * wraps all of the child views. Example:
-     *
-     *   return (
-     *     <ScrollView contentContainerStyle={styles.contentContainer}>
-     *     </ScrollView>
-     *   );
-     *   ...
-     *   const styles = StyleSheet.create({
-     *     contentContainer: {
-     *       paddingVertical: 20
-     *     }
-     *   });
-     */
-    contentContainerStyle: StyleSheetPropType(ViewStylePropTypes),
-    /**
-     * A floating-point number that determines how quickly the scroll view
-     * decelerates after the user lifts their finger. You may also use string
-     * shortcuts `"normal"` and `"fast"` which match the underlying iOS settings
-     * for `UIScrollViewDecelerationRateNormal` and
-     * `UIScrollViewDecelerationRateFast` respectively.
-     *   - normal: 0.998 (the default)
-     *   - fast: 0.99
-     * @platform ios
-     */
-    decelerationRate: PropTypes.oneOfType([
-      PropTypes.oneOf(['fast', 'normal']),
-      PropTypes.number,
-    ]),
-    /**
-     * When true, the scroll view's children are arranged horizontally in a row
-     * instead of vertically in a column. The default value is false.
-     */
-    horizontal: PropTypes.bool,
-    /**
-     * The style of the scroll indicators.
-     *   - `default` (the default), same as `black`.
-     *   - `black`, scroll indicator is black. This style is good against a white content background.
-     *   - `white`, scroll indicator is white. This style is good against a black content background.
-     * @platform ios
-     */
-    indicatorStyle: PropTypes.oneOf([
-      'default', // default
-      'black',
-      'white',
-    ]),
-    /**
-     * When true, the ScrollView will try to lock to only vertical or horizontal
-     * scrolling while dragging.  The default value is false.
-     * @platform ios
-     */
-    directionalLockEnabled: PropTypes.bool,
-    /**
-     * When false, once tracking starts, won't try to drag if the touch moves.
-     * The default value is true.
-     * @platform ios
-     */
-    canCancelContentTouches: PropTypes.bool,
-    /**
-     * Determines whether the keyboard gets dismissed in response to a drag.
-     *   - 'none' (the default), drags do not dismiss the keyboard.
-     *   - 'on-drag', the keyboard is dismissed when a drag begins.
-     *   - 'interactive', the keyboard is dismissed interactively with the drag and moves in
-     *     synchrony with the touch; dragging upwards cancels the dismissal.
-     *     On android this is not supported and it will have the same behavior as 'none'.
-     */
-    keyboardDismissMode: PropTypes.oneOf([
-      'none', // default
-      'interactive',
-      'on-drag',
-    ]),
-    /**
-     * When false, tapping outside of the focused text input when the keyboard
-     * is up dismisses the keyboard. When true, the scroll view will not catch
-     * taps, and the keyboard will not dismiss automatically. The default value
-     * is false.
-     */
-    keyboardShouldPersistTaps: PropTypes.bool,
-    /**
-     * The maximum allowed zoom scale. The default value is 1.0.
-     * @platform ios
-     */
-    maximumZoomScale: PropTypes.number,
-    /**
-     * The minimum allowed zoom scale. The default value is 1.0.
-     * @platform ios
-     */
-    minimumZoomScale: PropTypes.number,
-    /**
-     * Fires at most once per frame during scrolling. The frequency of the
-     * events can be controlled using the `scrollEventThrottle` prop.
-     */
-    onScroll: PropTypes.func,
-    /**
-     * Called when a scrolling animation ends.
-     * @platform ios
-     */
-    onScrollAnimationEnd: PropTypes.func,
-=======
+
 class ScrollView extends React.Component<Props, State> {
   /**
    * Part 1: Removing ScrollResponder.Mixin:
@@ -786,7 +626,6 @@ class ScrollView extends React.Component<Props, State> {
   constructor(...args) {
     super(...args);
 
->>>>>>> 0.59.10-stable-patch
     /**
      * Part 2: Removing ScrollResponder.Mixin
      *
@@ -827,40 +666,10 @@ class ScrollView extends React.Component<Props, State> {
   _stickyHeaderRefs: Map<number, ScrollViewStickyHeader> = new Map();
   _headerLayoutYs: Map<string, number> = new Map();
 
-<<<<<<< HEAD
-    /**
-     * Tag used to log scroll performance on this scroll view. Will force
-     * momentum events to be turned on (see sendMomentumEvents). This doesn't do
-     * anything out of the box and you need to implement a custom native
-     * FpsListener for it to be useful.
-     * @platform android
-     */
-    scrollPerfTag: PropTypes.string,
-
-    /**
-     * When true, shows a pull-to-refresh animation
-     * @platform iOS
-     */
-    enablePullToRefresh: PropTypes.bool,
-
-    /**
-     * Prop determines to begin or end pull-to-refresh
-     * @platform iOS
-     */
-    isOnPullToRefresh: PropTypes.bool,
-
-    /**
-     * Action of pull-to-refresh
-     * @platform iOS
-     */
-    onLoadRefreshingAction: PropTypes.func,
-  },
-=======
   state = {
     layoutHeight: null,
     ...ScrollResponder.Mixin.scrollResponderMixinGetInitialState(),
   };
->>>>>>> 0.59.10-stable-patch
 
   UNSAFE_componentWillMount() {
     this._scrollResponder.UNSAFE_componentWillMount();

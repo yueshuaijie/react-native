@@ -222,7 +222,6 @@ class WebView extends React.Component {
      * @platform ios
      */
     scrollEnabled: PropTypes.bool,
-    quickModel: PropTypes.bool,
     /**
      * Controls whether to adjust the content inset for web views that are
      * placed behind a navigation bar, tab bar, or toolbar. The default value
@@ -456,11 +455,7 @@ class WebView extends React.Component {
     }
 
     if (this.state.viewState === WebViewState.LOADING) {
-      if (!this.props.quickModel || this.props.renderLoading) {
-        otherView = (this.props.renderLoading || defaultRenderLoading)();
-      } else {
-        loadingView = defaultRenderLoading();
-      }
+      otherView = (this.props.renderLoading || defaultRenderLoading)();
     } else if (this.state.viewState === WebViewState.ERROR) {
       const errorEvent = this.state.lastErrorEvent;
       invariant(errorEvent != null, 'lastErrorEvent expected to be non-null');
@@ -576,7 +571,6 @@ class WebView extends React.Component {
       <View style={styles.container}>
         {webView}
         {otherView}
-        {loadingView}
       </View>
     );
   }
@@ -672,38 +666,6 @@ class WebView extends React.Component {
         this.getWebViewHandle(),
         callback,
       );
-  },
-
-  /**
-   * Posts a message to the web view, which will emit a `message` event.
-   * Accepts one argument, `data`, which must be a string.
-   *
-   * In your webview, you'll need to something like the following.
-   *
-   * ```js
-   * document.addEventListener('message', e => { document.title = e.data; });
-   * ```
-   */
-  postMessage: function(data) {
-    UIManager.dispatchViewManagerCommand(
-      this.getWebViewHandle(),
-      UIManager.RCTWebView.Commands.postMessage,
-      [String(data)]
-    );
-  },
-
-  /**
-  * Injects a javascript string into the referenced WebView. Deliberately does not
-  * return a response because using eval() to return a response breaks this method
-  * on pages with a Content Security Policy that disallows eval(). If you need that
-  * functionality, look into postMessage/onMessage.
-  */
-  injectJavaScript: function(data) {
-    UIManager.dispatchViewManagerCommand(
-      this.getWebViewHandle(),
-      UIManager.RCTWebView.Commands.injectJavaScript,
-      [data]
-    );
   },
 
   /**
@@ -818,14 +780,11 @@ const styles = StyleSheet.create({
     flex: 0, // disable 'flex:1' when hiding a View
   },
   loadingView: {
+    backgroundColor: BGWASH,
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    height: 30,
-    width: 30,
-    top: height / 2 - 30,
-    left: width / 2 - 15,
-    position: 'absolute',
+    height: 100,
   },
   webView: {
     backgroundColor: '#ffffff',
