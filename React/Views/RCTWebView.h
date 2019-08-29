@@ -6,6 +6,7 @@
  */
 
 #import <React/RCTView.h>
+#import <React/RCTBridgeModule.h>
 
 @class RCTWebView;
 
