@@ -780,8 +780,8 @@ class ScrollView extends React.Component<Props, State> {
    * Stop pull-to-refresh
    */
   stopPullToRefresh() {
-    RCTScrollViewManager.stopPullToRefresh(ReactNative.findNodeHandle(this));ß
-  },
+    RCTScrollViewManager.stopPullToRefresh(ReactNative.findNodeHandle(this));
+  }
 
   /**
    * If this is a vertical ScrollView scrolls to the bottom.

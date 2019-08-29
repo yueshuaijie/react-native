@@ -660,13 +660,13 @@ class WebView extends React.Component {
     );
   };
 
-  canGoBack: function(callback) {
+  canGoBack = callback => {
     RCTWebViewManager && RCTWebViewManager.canGoBack &&
       RCTWebViewManager.canGoBack(
         this.getWebViewHandle(),
         callback,
       );
-  },
+  };
 
   /**
    * We return an event with a bunch of fields including:
