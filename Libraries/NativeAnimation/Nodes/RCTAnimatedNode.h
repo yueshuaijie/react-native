@@ -1,13 +1,13 @@
 /**
- * Copyright (c) 2015-present, Facebook, Inc.
- * All rights reserved.
+ * Copyright (c) Facebook, Inc. and its affiliates.
  *
- * This source code is licensed under the BSD-style license found in the
- * LICENSE file in the root directory of this source tree. An additional grant
- * of patent rights can be found in the PATENTS file in the same directory.
+ * This source code is licensed under the MIT license found in the
+ * LICENSE file in the root directory of this source tree.
  */
 
 #import <Foundation/Foundation.h>
+
+@class RCTNativeAnimatedNodesManager;
 
 @interface RCTAnimatedNode : NSObject
 
@@ -15,13 +15,13 @@
                      config:(NSDictionary<NSString *, id> *)config NS_DESIGNATED_INITIALIZER;
 
 @property (nonatomic, readonly) NSNumber *nodeTag;
+@property (nonatomic, weak) RCTNativeAnimatedNodesManager *manager;
 @property (nonatomic, copy, readonly) NSDictionary<NSString *, id> *config;
 
-@property (nonatomic, copy, readonly) NSDictionary<NSNumber *, RCTAnimatedNode *> *childNodes;
-@property (nonatomic, copy, readonly) NSDictionary<NSNumber *, RCTAnimatedNode *> *parentNodes;
+@property (nonatomic, copy, readonly) NSMapTable<NSNumber *, RCTAnimatedNode *> *childNodes;
+@property (nonatomic, copy, readonly) NSMapTable<NSNumber *, RCTAnimatedNode *> *parentNodes;
 
 @property (nonatomic, readonly) BOOL needsUpdate;
-@property (nonatomic, readonly) BOOL hasUpdated;
 
 /**
  * Marks a node and its children as needing update.
@@ -37,11 +37,6 @@
  * Where the actual update code lives. Called internally from updateNodeIfNecessary
  */
 - (void)performUpdate NS_REQUIRES_SUPER;
-
-/**
- * Cleans up after a round of updates.
- */
-- (void)cleanupAnimationUpdate NS_REQUIRES_SUPER;
 
 - (void)addChild:(RCTAnimatedNode *)child NS_REQUIRES_SUPER;
 - (void)removeChild:(RCTAnimatedNode *)child NS_REQUIRES_SUPER;

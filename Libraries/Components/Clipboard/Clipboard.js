@@ -1,18 +1,16 @@
 /**
- * Copyright (c) 2015-present, Facebook, Inc.
- * All rights reserved.
+ * Copyright (c) Facebook, Inc. and its affiliates.
  *
- * This source code is licensed under the BSD-style license found in the
- * LICENSE file in the root directory of this source tree. An additional grant
- * of patent rights can be found in the PATENTS file in the same directory.
+ * This source code is licensed under the MIT license found in the
+ * LICENSE file in the root directory of this source tree.
  *
- * @providesModule Clipboard
- * @flow
+ * @format
+ * @flow strict-local
  */
+
 'use strict';
 
 const Clipboard = require('NativeModules').Clipboard;
-const deprecatedCallback = require('deprecatedCallback');
 
 /**
  * `Clipboard` gives you an interface for setting and getting content from Clipboard on both iOS and Android
@@ -27,12 +25,7 @@ module.exports = {
    * ```
    */
   getString(): Promise<string> {
-    return deprecatedCallback(
-      Clipboard.getString(),
-      Array.prototype.slice.call(arguments),
-      'success-first',
-      'Clipboard.getString(callback) is deprecated. Use the returned Promise instead'
-    );
+    return Clipboard.getString();
   },
   /**
    * Set content of string type. You can use following code to set clipboard content
@@ -45,5 +38,5 @@ module.exports = {
    */
   setString(content: string) {
     Clipboard.setString(content);
-  }
+  },
 };

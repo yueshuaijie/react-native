@@ -1,21 +1,28 @@
 #!/bin/bash
-
+# Copyright (c) Facebook, Inc. and its affiliates.
+#
+# This source code is licensed under the MIT license found in the
+# LICENSE file in the root directory of this source tree.
+#
 # Runs all Android integration tests locally.
 # See http://facebook.github.io/react-native/docs/testing.html
 
-set -e
+source $(dirname $0)/validate-android-sdk.sh
+source $(dirname $0)/validate-android-test-env.sh
+source $(dirname $0)/validate-android-device-env.sh
 
-which buck > /dev/null || {
-  echo "React Native uses the Buck build tool to run tests. Please install Buck: https://buckbuild.com/setup/install.html";
-  exit 1;
-}
+set -e
 
 echo "Compiling native code..."
 ./gradlew :ReactAndroid:packageReactNdkLibsForBuck
+
 echo "Building JS bundle..."
-node local-cli/cli.js bundle --platform android --dev true --entry-file ReactAndroid/src/androidTest/js/TestBundle.js --bundle-output ReactAndroid/src/androidTest/assets/AndroidTestBundle.js
+node cli.js bundle --platform android --dev true --entry-file ReactAndroid/src/androidTest/js/TestBundle.js --bundle-output ReactAndroid/src/androidTest/assets/AndroidTestBundle.js --reactNativePath .
+
 echo "Installing test app on the device..."
 buck fetch ReactAndroid/src/androidTest/buck-runner:instrumentation-tests
 buck install ReactAndroid/src/androidTest/buck-runner:instrumentation-tests
+
 echo "Running integration tests..."
-adb shell am instrument -w com.facebook.react.tests/android.support.test.runner.AndroidJUnitRunner
+# Use the JS script that runs all tests in a loop and is easy to tweak
+node ./scripts/run-android-ci-instrumentation-tests.js --path ./ReactAndroid/src/androidTest/java/com/facebook/react/tests --package com.facebook.react.tests

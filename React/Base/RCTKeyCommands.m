@@ -1,10 +1,8 @@
 /**
- * Copyright (c) 2015-present, Facebook, Inc.
- * All rights reserved.
+ * Copyright (c) Facebook, Inc. and its affiliates.
  *
- * This source code is licensed under the BSD-style license found in the
- * LICENSE file in the root directory of this source tree. An additional grant
- * of patent rights can be found in the PATENTS file in the same directory.
+ * This source code is licensed under the MIT license found in the
+ * LICENSE file in the root directory of this source tree.
  */
 
 #import "RCTKeyCommands.h"
@@ -68,8 +66,8 @@ RCT_NOT_IMPLEMENTED(- (instancetype)init)
 
 - (NSString *)description
 {
-  return [NSString stringWithFormat:@"<%@:%p input=\"%@\" flags=%zd hasBlock=%@>",
-          [self class], self, _keyCommand.input, _keyCommand.modifierFlags,
+  return [NSString stringWithFormat:@"<%@:%p input=\"%@\" flags=%lld hasBlock=%@>",
+          [self class], self, _keyCommand.input, (long long)_keyCommand.modifierFlags,
           _block ? @"YES" : @"NO"];
 }
 
@@ -144,7 +142,7 @@ RCT_NOT_IMPLEMENTED(- (instancetype)init)
   static NSTimeInterval lastCommand = 0;
   static NSTimeInterval lastDoubleCommand = 0;
   static NSString *lastInput = nil;
-  static UIKeyModifierFlags lastModifierFlags = nil;
+  static UIKeyModifierFlags lastModifierFlags = 0;
 
   if (firstPress) {
     for (RCTKeyCommand *command in [RCTKeyCommands sharedInstance].commands) {

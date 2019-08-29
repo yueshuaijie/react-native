@@ -1,10 +1,8 @@
 /**
- * Copyright (c) 2015-present, Facebook, Inc.
- * All rights reserved.
+ * Copyright (c) Facebook, Inc. and its affiliates.
  *
- * This source code is licensed under the BSD-style license found in the
- * LICENSE file in the root directory of this source tree. An additional grant
- * of patent rights can be found in the PATENTS file in the same directory.
+ * This source code is licensed under the MIT license found in the
+ * LICENSE file in the root directory of this source tree.
  */
 
 package com.facebook.react;
@@ -65,7 +63,7 @@ public class RootViewTest {
 
   @Before
   public void setUp() {
-    final long ts = SystemClock.nanoTime();
+    final long ts = SystemClock.uptimeMillis();
     PowerMockito.mockStatic(Arguments.class);
     PowerMockito.when(Arguments.createArray()).thenAnswer(new Answer<Object>() {
       @Override
@@ -80,7 +78,7 @@ public class RootViewTest {
       }
     });
     PowerMockito.mockStatic(SystemClock.class);
-    PowerMockito.when(SystemClock.nanoTime()).thenAnswer(new Answer<Object>() {
+    PowerMockito.when(SystemClock.uptimeMillis()).thenAnswer(new Answer<Object>() {
       @Override
       public Object answer(InvocationOnMock invocation) throws Throwable {
         return ts;
@@ -116,7 +114,7 @@ public class RootViewTest {
     rootView.startReactApplication(instanceManager, "");
     rootView.simulateAttachForTesting();
 
-    long ts = SystemClock.nanoTime();
+    long ts = SystemClock.uptimeMillis();
 
     // Test ACTION_DOWN event
     rootView.onTouchEvent(
@@ -149,7 +147,7 @@ public class RootViewTest {
             0.,
             "target",
             rootViewId,
-            "timeStamp",
+            "timestamp",
             (double) ts,
             "identifier",
             0.));
@@ -186,7 +184,7 @@ public class RootViewTest {
             0.,
             "target",
             rootViewId,
-            "timeStamp",
+            "timestamp",
             (double) ts,
             "identifier",
             0.));
@@ -196,5 +194,16 @@ public class RootViewTest {
     rootView.onTouchEvent(
         MotionEvent.obtain(50, new Date().getTime(), MotionEvent.ACTION_HOVER_MOVE, 0, 0, 0));
     verifyNoMoreInteractions(eventDispatcher);
+  }
+
+  @Test
+  public void testRemountApplication() {
+    ReactInstanceManager instanceManager = mock(ReactInstanceManager.class);
+
+    ReactRootView rootView = new ReactRootView(mReactContext);
+
+    rootView.startReactApplication(instanceManager, "");
+    rootView.unmountReactApplication();
+    rootView.startReactApplication(instanceManager, "");
   }
 }

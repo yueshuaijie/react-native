@@ -1,10 +1,8 @@
 /*
- * Copyright (c) 2015-present, Facebook, Inc.
- * All rights reserved.
+ * Copyright (c) Facebook, Inc. and its affiliates.
  *
- * This source code is licensed under the BSD-style license found in the
- * LICENSE file in the root directory of this source tree. An additional grant
- * of patent rights can be found in the PATENTS file in the same directory.
+ * This source code is licensed under the MIT license found in the
+ * LICENSE file in the root directory of this source tree.
  */
 
 #include <jni/LocalString.h>
@@ -82,16 +80,18 @@ size_t modifiedLength(const uint8_t* str, size_t* length) {
   // NUL-terminated: Scan for length and supplementary characters
   size_t i = 0;
   size_t j = 0;
-  while (str[i] != 0) {
-    if (str[i + 1] == 0 ||
-        str[i + 2] == 0 ||
-        str[i + 3] == 0 ||
-        !isFourByteUTF8Encoding(&(str[i]))) {
-      i += 1;
-      j += 1;
-    } else {
-      i += 4;
-      j += 6;
+  if (str != nullptr) {
+    while (str[i] != 0) {
+      if (str[i + 1] == 0 ||
+          str[i + 2] == 0 ||
+          str[i + 3] == 0 ||
+          !isFourByteUTF8Encoding(&(str[i]))) {
+        i += 1;
+        j += 1;
+      } else {
+        i += 4;
+        j += 6;
+      }
     }
   }
 
@@ -156,7 +156,7 @@ void utf8ToModifiedUTF8(const uint8_t* utf8, size_t len, uint8_t* modified, size
   modified[j++] = '\0';
 }
 
-std::string modifiedUTF8ToUTF8(const uint8_t* modified, size_t len) {
+std::string modifiedUTF8ToUTF8(const uint8_t* modified, size_t len) noexcept {
   // Converting from modified utf8 to utf8 will always shrink, so this will always be sufficient
   std::string utf8(len, 0);
   size_t j = 0;
@@ -230,7 +230,7 @@ size_t utf16toUTF8Length(const uint16_t* utf16String, size_t utf16StringLen) {
   return utf8StringLen;
 }
 
-std::string utf16toUTF8(const uint16_t* utf16String, size_t utf16StringLen) {
+std::string utf16toUTF8(const uint16_t* utf16String, size_t utf16StringLen) noexcept {
   if (!utf16String || utf16StringLen <= 0) {
     return "";
   }
@@ -305,8 +305,7 @@ LocalString::~LocalString() {
 
 std::string fromJString(JNIEnv* env, jstring str) {
   auto utf16String = JStringUtf16Extractor(env, str);
-  auto length = env->GetStringLength(str);
-  return detail::utf16toUTF8(utf16String, length);
+  return detail::utf16toUTF8(utf16String.chars(), utf16String.length());
 }
 
 } }

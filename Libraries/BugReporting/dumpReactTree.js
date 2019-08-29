@@ -1,22 +1,22 @@
 /**
- * Copyright (c) 2013-present, Facebook, Inc.
- * All rights reserved.
+ * Copyright (c) Facebook, Inc. and its affiliates.
  *
- * This source code is licensed under the BSD-style license found in the
- * LICENSE file in the root directory of this source tree. An additional grant
- * of patent rights can be found in the PATENTS file in the same directory.
+ * This source code is licensed under the MIT license found in the
+ * LICENSE file in the root directory of this source tree.
  *
- * @providesModule dumpReactTree
- * @flow
+ * @format
+ * @flow strict
  */
+
 'use strict';
 
-const ReactNativeMount = require('react/lib/ReactNativeMount');
+/*
 const getReactData = require('getReactData');
 
 const INDENTATION_SIZE = 2;
 const MAX_DEPTH = 2;
 const MAX_STRING_LENGTH = 50;
+*/
 
 /**
  * Dump all React Native root views and their content. This function tries
@@ -32,6 +32,12 @@ function dumpReactTree() {
 }
 
 function getReactTree() {
+  // TODO(sema): Reenable tree dumps using the Fiber tree structure. #15945684
+  return (
+    'React tree dumps have been temporarily disabled while React is ' +
+    'upgraded to Fiber.'
+  );
+  /*
   let output = '';
   const rootIds = Object.getOwnPropertyNames(ReactNativeMount._instancesByContainerID);
   for (const rootId of rootIds) {
@@ -41,16 +47,18 @@ function getReactTree() {
     output += `============ End root ID: ${rootId} ============\n`;
   }
   return output;
+*/
 }
 
-function dumpNode(node: Object, identation: number) {
+/*
+function dumpNode(node: Object, indentation: number) {
   const data = getReactData(node);
   if (data.nodeType === 'Text') {
-    return indent(identation) + data.text + '\n';
+    return indent(indentation) + data.text + '\n';
   } else if (data.nodeType === 'Empty') {
     return '';
   }
-  let output = indent(identation) + `<${data.name}`;
+  let output = indent(indentation) + `<${data.name}`;
   if (data.nodeType === 'Composite') {
     for (const propName of Object.getOwnPropertyNames(data.props || {})) {
       if (isNormalProp(propName)) {
@@ -68,11 +76,11 @@ function dumpNode(node: Object, identation: number) {
   }
   let childOutput = '';
   for (const child of data.children || []) {
-    childOutput += dumpNode(child, identation + 1);
+    childOutput += dumpNode(child, indentation + 1);
   }
 
   if (childOutput) {
-    output += '>\n' + childOutput + indent(identation) + `</${data.name}>\n`;
+    output += '>\n' + childOutput + indent(indentation) + `</${data.name}>\n`;
   } else {
     output += ' />\n';
   }
@@ -138,5 +146,6 @@ function possiblyEllipsis(value: string) {
 function indent(size: number) {
   return ' '.repeat(size * INDENTATION_SIZE);
 }
+*/
 
 module.exports = dumpReactTree;

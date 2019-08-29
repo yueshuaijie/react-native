@@ -1,47 +1,61 @@
 /**
- * Copyright (c) 2013-present, Facebook, Inc.
- * All rights reserved.
+ * Copyright (c) Facebook, Inc. and its affiliates.
  *
- * This source code is licensed under the BSD-style license found in the
- * LICENSE file in the root directory of this source tree. An additional grant
- * of patent rights can be found in the PATENTS file in the same directory.
+ * This source code is licensed under the MIT license found in the
+ * LICENSE file in the root directory of this source tree.
  *
- * @providesModule MultitouchHandlingTestAppModule
+ * @format
  */
 
 'use strict';
 
-var React = require('React');
-var Recording = require('NativeModules').Recording;
-var StyleSheet = require('StyleSheet');
-var TouchEventUtils = require('fbjs/lib/TouchEventUtils');
-var View = require('View');
+const React = require('React');
+const Recording = require('NativeModules').Recording;
+const StyleSheet = require('StyleSheet');
+const View = require('View');
 
-var TouchTestApp = React.createClass({
-  handleStartShouldSetResponder: function(e) {
+const extractSingleTouch = nativeEvent => {
+  const touches = nativeEvent.touches;
+  const changedTouches = nativeEvent.changedTouches;
+  const hasTouches = touches && touches.length > 0;
+  const hasChangedTouches = changedTouches && changedTouches.length > 0;
+
+  return !hasTouches && hasChangedTouches
+    ? changedTouches[0]
+    : hasTouches
+      ? touches[0]
+      : nativeEvent;
+};
+
+class TouchTestApp extends React.Component {
+  handleStartShouldSetResponder = e => {
     return true;
-  },
-  handleOnResponderMove: function(e) {
-    e = TouchEventUtils.extractSingleTouch(e.nativeEvent);
+  };
+
+  handleOnResponderMove = e => {
+    e = extractSingleTouch(e.nativeEvent);
     Recording.record('move;' + e.touches.length);
-  },
-  handleResponderStart: function(e) {
-    e = TouchEventUtils.extractSingleTouch(e.nativeEvent);
+  };
+
+  handleResponderStart = e => {
+    e = extractSingleTouch(e.nativeEvent);
     if (e.touches) {
       Recording.record('start;' + e.touches.length);
     } else {
       Recording.record('start;ExtraPointer');
     }
-  },
-  handleResponderEnd: function(e) {
-    e = TouchEventUtils.extractSingleTouch(e.nativeEvent);
+  };
+
+  handleResponderEnd = e => {
+    e = extractSingleTouch(e.nativeEvent);
     if (e.touches) {
       Recording.record('end;' + e.touches.length);
     } else {
       Recording.record('end;ExtraPointer');
     }
-  },
-  render: function() {
+  };
+
+  render() {
     return (
       <View
         style={styles.container}
@@ -52,10 +66,10 @@ var TouchTestApp = React.createClass({
         collapsable={false}
       />
     );
-  },
-});
+  }
+}
 
-var styles = StyleSheet.create({
+const styles = StyleSheet.create({
   container: {
     flex: 1,
   },

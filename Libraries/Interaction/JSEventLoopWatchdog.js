@@ -1,21 +1,24 @@
 /**
- * Copyright (c) 2015-present, Facebook, Inc.
- * All rights reserved.
+ * Copyright (c) Facebook, Inc. and its affiliates.
  *
- * This source code is licensed under the BSD-style license found in the
- * LICENSE file in the root directory of this source tree. An additional grant
- * of patent rights can be found in the PATENTS file in the same directory.
+ * This source code is licensed under the MIT license found in the
+ * LICENSE file in the root directory of this source tree.
  *
- * @providesModule JSEventLoopWatchdog
+ * @format
  * @flow
  */
+
 'use strict';
 
-const performanceNow = require('performanceNow');
+const infoLog = require('infoLog');
+/* $FlowFixMe(>=0.54.0 site=react_native_oss) This comment suppresses an error
+ * found when Flow v0.54 was deployed. To see the error delete this comment and
+ * run Flow. */
+const performanceNow = require('fbjs/lib/performanceNow');
 
 type Handler = {
-  onIterate?: () => void;
-  onStall: (params: {lastInterval: number}) => string;
+  onIterate?: () => void,
+  onStall: (params: {lastInterval: number, busyTime: number}) => ?string,
 };
 
 /**
@@ -35,7 +38,7 @@ const JSEventLoopWatchdog = {
     return {stallCount, totalStallTime, longestStall, acceptableBusyTime};
   },
   reset: function() {
-    console.log('JSEventLoopWatchdog: reset');
+    infoLog('JSEventLoopWatchdog: reset');
     totalStallTime = 0;
     stallCount = 0;
     longestStall = 0;
@@ -59,14 +62,15 @@ const JSEventLoopWatchdog = {
         stallCount++;
         totalStallTime += stallTime;
         longestStall = Math.max(longestStall, stallTime);
-        let msg = `JSEventLoopWatchdog: JS thread busy for ${busyTime}ms. ` +
+        let msg =
+          `JSEventLoopWatchdog: JS thread busy for ${busyTime}ms. ` +
           `${totalStallTime}ms in ${stallCount} stalls so far. `;
-        handlers.forEach((handler) => {
-          msg += handler.onStall({lastInterval});
+        handlers.forEach(handler => {
+          msg += handler.onStall({lastInterval, busyTime}) || '';
         });
-        console.log(msg);
+        infoLog(msg);
       }
-      handlers.forEach((handler) => {
+      handlers.forEach(handler => {
         handler.onIterate && handler.onIterate();
       });
       lastInterval = now;

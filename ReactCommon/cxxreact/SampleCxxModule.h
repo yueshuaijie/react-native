@@ -1,12 +1,14 @@
-// Copyright 2004-present Facebook. All Rights Reserved.
+// Copyright (c) Facebook, Inc. and its affiliates.
 
-#ifndef FBSAMPLEXPLATMODULE
-#define FBSAMPLEXPLATMODULE
+// This source code is licensed under the MIT license found in the
+// LICENSE file in the root directory of this source tree.
 
-#include <cxxreact/CxxModule.h>
+#pragma once
 
 #include <memory>
 #include <vector>
+
+#include <cxxreact/CxxModule.h>
 
 namespace facebook { namespace xplat { namespace samples {
 
@@ -23,6 +25,7 @@ public:
   std::map<std::string, std::string> load();
   void call_later(int msec, std::function<void()> f);
   void except();
+  double twice(double n);
 
 private:
   std::map<std::string, std::string> state_;
@@ -47,5 +50,4 @@ private:
 
 }}}
 
-#endif
-
+extern "C" facebook::xplat::module::CxxModule *SampleCxxModule();

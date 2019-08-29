@@ -1,10 +1,8 @@
 /**
- * Copyright (c) 2015-present, Facebook, Inc.
- * All rights reserved.
+ * Copyright (c) Facebook, Inc. and its affiliates.
  *
- * This source code is licensed under the BSD-style license found in the
- * LICENSE file in the root directory of this source tree. An additional grant
- * of patent rights can be found in the PATENTS file in the same directory.
+ * This source code is licensed under the MIT license found in the
+ * LICENSE file in the root directory of this source tree.
  */
 
 #import "RCTEventDispatcher.h"
@@ -46,6 +44,8 @@ static NSNumber *RCTGetEventID(id<RCTEvent> event)
   // This array contains ids of events in order they come in, so we can emit them to JS in the exact same order.
   NSMutableArray<NSNumber *> *_eventQueue;
   BOOL _eventsDispatchScheduled;
+  NSHashTable<id<RCTEventDispatcherObserver>> *_observers;
+  NSLock *_observersLock;
 }
 
 @synthesize bridge = _bridge;
@@ -59,18 +59,24 @@ RCT_EXPORT_MODULE()
   _eventQueue = [NSMutableArray new];
   _eventQueueLock = [NSLock new];
   _eventsDispatchScheduled = NO;
+  _observers = [NSHashTable weakObjectsHashTable];
+  _observersLock = [NSLock new];
 }
 
 - (void)sendAppEventWithName:(NSString *)name body:(id)body
 {
-  [_bridge enqueueJSCall:@"RCTNativeAppEventEmitter.emit"
-                    args:body ? @[name, body] : @[name]];
+  [_bridge enqueueJSCall:@"RCTNativeAppEventEmitter"
+                  method:@"emit"
+                    args:body ? @[name, body] : @[name]
+              completion:NULL];
 }
 
 - (void)sendDeviceEventWithName:(NSString *)name body:(id)body
 {
-  [_bridge enqueueJSCall:@"RCTDeviceEventEmitter.emit"
-                    args:body ? @[name, body] : @[name]];
+  [_bridge enqueueJSCall:@"RCTDeviceEventEmitter"
+                  method:@"emit"
+                    args:body ? @[name, body] : @[name]
+              completion:NULL];
 }
 
 - (void)sendInputEventWithName:(NSString *)name body:(NSDictionary *)body
@@ -81,8 +87,10 @@ RCT_EXPORT_MODULE()
   }
 
   name = RCTNormalizeInputEventName(name);
-  [_bridge enqueueJSCall:@"RCTEventEmitter.receiveEvent"
-                    args:body ? @[body[@"target"], name, body] : @[body[@"target"], name]];
+  [_bridge enqueueJSCall:@"RCTEventEmitter"
+                  method:@"receiveEvent"
+                    args:body ? @[body[@"target"], name, body] : @[body[@"target"], name]
+              completion:NULL];
 }
 
 - (void)sendTextEventWithType:(RCTTextEventType)type
@@ -134,6 +142,14 @@ RCT_EXPORT_MODULE()
 
 - (void)sendEvent:(id<RCTEvent>)event
 {
+  [_observersLock lock];
+
+  for (id<RCTEventDispatcherObserver> observer in _observers) {
+    [observer eventDispatcherWillDispatchEvent:event];
+  }
+
+  [_observersLock unlock];
+
   [_eventQueueLock lock];
 
   NSNumber *eventID = RCTGetEventID(event);
@@ -165,6 +181,20 @@ RCT_EXPORT_MODULE()
   }
 }
 
+- (void)addDispatchObserver:(id<RCTEventDispatcherObserver>)observer
+{
+  [_observersLock lock];
+  [_observers addObject:observer];
+  [_observersLock unlock];
+}
+
+- (void)removeDispatchObserver:(id<RCTEventDispatcherObserver>)observer
+{
+  [_observersLock lock];
+  [_observers removeObject:observer];
+  [_observersLock unlock];
+}
+
 - (void)dispatchEvent:(id<RCTEvent>)event
 {
   [_bridge enqueueJSCall:[[event class] moduleDotMethod] args:[event arguments]];
@@ -175,7 +205,7 @@ RCT_EXPORT_MODULE()
   return RCTJSThread;
 }
 
-// js thread only (which suprisingly can be the main thread, depends on used JS executor)
+// js thread only (which surprisingly can be the main thread, depends on used JS executor)
 - (void)flushEventsQueue
 {
   [_eventQueueLock lock];

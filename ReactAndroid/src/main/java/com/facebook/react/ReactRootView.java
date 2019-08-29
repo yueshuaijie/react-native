@@ -1,105 +1,187 @@
 /**
- * Copyright (c) 2015-present, Facebook, Inc.
- * All rights reserved.
+ * Copyright (c) Facebook, Inc. and its affiliates.
  *
- * This source code is licensed under the BSD-style license found in the
- * LICENSE file in the root directory of this source tree. An additional grant
- * of patent rights can be found in the PATENTS file in the same directory.
+ * This source code is licensed under the MIT license found in the
+ * LICENSE file in the root directory of this source tree.
  */
 
 package com.facebook.react;
 
-import javax.annotation.Nullable;
+import static com.facebook.react.uimanager.common.UIManagerType.DEFAULT;
+import static com.facebook.react.uimanager.common.UIManagerType.FABRIC;
+import static com.facebook.systrace.Systrace.TRACE_TAG_REACT_JAVA_BRIDGE;
 
 import android.content.Context;
+import android.graphics.Canvas;
 import android.graphics.Rect;
+import android.os.Build;
 import android.os.Bundle;
 import android.util.AttributeSet;
+import android.util.DisplayMetrics;
+import android.view.KeyEvent;
 import android.view.MotionEvent;
+import android.view.Surface;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.ViewTreeObserver;
-
+import android.view.WindowManager;
 import com.facebook.common.logging.FLog;
 import com.facebook.infer.annotation.Assertions;
 import com.facebook.react.bridge.Arguments;
+import com.facebook.react.bridge.CatalystInstance;
 import com.facebook.react.bridge.ReactContext;
+import com.facebook.react.bridge.ReactMarker;
+import com.facebook.react.bridge.ReactMarkerConstants;
 import com.facebook.react.bridge.UiThreadUtil;
 import com.facebook.react.bridge.WritableMap;
+import com.facebook.react.bridge.WritableNativeMap;
 import com.facebook.react.common.ReactConstants;
 import com.facebook.react.common.annotations.VisibleForTesting;
+import com.facebook.react.modules.appregistry.AppRegistry;
 import com.facebook.react.modules.core.DeviceEventManagerModule;
+import com.facebook.react.modules.deviceinfo.DeviceInfoModule;
 import com.facebook.react.uimanager.DisplayMetricsHolder;
+import com.facebook.react.uimanager.IllegalViewOperationException;
+import com.facebook.react.uimanager.JSTouchDispatcher;
 import com.facebook.react.uimanager.PixelUtil;
 import com.facebook.react.uimanager.RootView;
-import com.facebook.react.uimanager.SizeMonitoringFrameLayout;
-import com.facebook.react.uimanager.JSTouchDispatcher;
+import com.facebook.react.uimanager.UIManagerHelper;
 import com.facebook.react.uimanager.UIManagerModule;
+import com.facebook.react.uimanager.common.MeasureSpecProvider;
+import com.facebook.react.uimanager.common.SizeMonitoringFrameLayout;
+import com.facebook.react.uimanager.common.UIManagerType;
 import com.facebook.react.uimanager.events.EventDispatcher;
+import com.facebook.systrace.Systrace;
+import javax.annotation.Nullable;
 
 /**
  * Default root view for catalyst apps. Provides the ability to listen for size changes so that a UI
- * manager can re-layout its elements.
- * It delegates handling touch events for itself and child views and sending those events to JS by
- * using JSTouchDispatcher.
- * This view is overriding {@link ViewGroup#onInterceptTouchEvent} method in order to be notified
- * about the events for all of it's children and it's also overriding
- * {@link ViewGroup#requestDisallowInterceptTouchEvent} to make sure that
- * {@link ViewGroup#onInterceptTouchEvent} will get events even when some child view start
- * intercepting it. In case when no child view is interested in handling some particular
- * touch event this view's {@link View#onTouchEvent} will still return true in order to be notified
- * about all subsequent touch events related to that gesture (in case when JS code want to handle
- * that gesture).
+ * manager can re-layout its elements. It delegates handling touch events for itself and child views
+ * and sending those events to JS by using JSTouchDispatcher. This view is overriding {@link
+ * ViewGroup#onInterceptTouchEvent} method in order to be notified about the events for all of its
+ * children and it's also overriding {@link ViewGroup#requestDisallowInterceptTouchEvent} to make
+ * sure that {@link ViewGroup#onInterceptTouchEvent} will get events even when some child view start
+ * intercepting it. In case when no child view is interested in handling some particular touch event,
+ * this view's {@link View#onTouchEvent} will still return true in order to be notified about all
+ * subsequent touch events related to that gesture (in case when JS code wants to handle that
+ * gesture).
  */
-public class ReactRootView extends SizeMonitoringFrameLayout implements RootView {
+public class ReactRootView extends SizeMonitoringFrameLayout
+    implements RootView, MeasureSpecProvider {
+
+  /**
+   * Listener interface for react root view events
+   */
+  public interface ReactRootViewEventListener {
+    /**
+     * Called when the react context is attached to a ReactRootView.
+     */
+    void onAttachedToReactInstance(ReactRootView rootView);
+  }
 
   private @Nullable ReactInstanceManager mReactInstanceManager;
   private @Nullable String mJSModuleName;
-  private @Nullable Bundle mLaunchOptions;
-  private @Nullable KeyboardListener mKeyboardListener;
-  private @Nullable OnGenericMotionListener mOnGenericMotionListener;
+  private @Nullable Bundle mAppProperties;
+  private @Nullable String mInitialUITemplate;
+  private @Nullable CustomGlobalLayoutListener mCustomGlobalLayoutListener;
+  private @Nullable ReactRootViewEventListener mRootViewEventListener;
+  private int mRootViewTag;
+  private boolean mIsAttachedToInstance;
+  private boolean mShouldLogContentAppeared;
+  private @Nullable JSTouchDispatcher mJSTouchDispatcher;
+  private final ReactAndroidHWInputDeviceHelper mAndroidHWInputDeviceHelper = new ReactAndroidHWInputDeviceHelper(this);
   private boolean mWasMeasured = false;
-  private boolean mIsAttachedToInstance = false;
-  private final JSTouchDispatcher mJSTouchDispatcher = new JSTouchDispatcher(this);
+  private int mWidthMeasureSpec = MeasureSpec.makeMeasureSpec(0, MeasureSpec.UNSPECIFIED);
+  private int mHeightMeasureSpec = MeasureSpec.makeMeasureSpec(0, MeasureSpec.UNSPECIFIED);
+  private @UIManagerType int mUIManagerType = DEFAULT;
 
   public ReactRootView(Context context) {
     super(context);
+    init();
   }
 
   public ReactRootView(Context context, AttributeSet attrs) {
     super(context, attrs);
+    init();
   }
 
   public ReactRootView(Context context, AttributeSet attrs, int defStyle) {
     super(context, attrs, defStyle);
+    init();
+  }
+
+  private void init() {
+    setClipChildren(false);
   }
 
   @Override
   protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
-    int widthMode = MeasureSpec.getMode(widthMeasureSpec);
-    int heightMode = MeasureSpec.getMode(heightMeasureSpec);
+    Systrace.beginSection(TRACE_TAG_REACT_JAVA_BRIDGE, "ReactRootView.onMeasure");
+    try {
+      mWidthMeasureSpec = widthMeasureSpec;
+      mHeightMeasureSpec = heightMeasureSpec;
 
-    if (widthMode == MeasureSpec.UNSPECIFIED || heightMode == MeasureSpec.UNSPECIFIED) {
-      throw new IllegalStateException(
-          "The root catalyst view must have a width and height given to it by it's parent view. " +
-          "You can do this by specifying MATCH_PARENT or explicit width and height in the layout.");
-    }
-
-    setMeasuredDimension(
-        MeasureSpec.getSize(widthMeasureSpec),
-        MeasureSpec.getSize(heightMeasureSpec));
-
-    mWasMeasured = true;
-    // Check if we were waiting for onMeasure to attach the root view
-    if (mReactInstanceManager != null && !mIsAttachedToInstance) {
-      // Enqueue it to UIThread not to block onMeasure waiting for the catalyst instance creation
-      UiThreadUtil.runOnUiThread(new Runnable() {
-        @Override
-        public void run() {
-          attachToReactInstanceManager();
+      int width = 0;
+      int height = 0;
+      int widthMode = MeasureSpec.getMode(widthMeasureSpec);
+      if (widthMode == MeasureSpec.AT_MOST || widthMode == MeasureSpec.UNSPECIFIED) {
+        for (int i = 0; i < getChildCount(); i++) {
+          View child = getChildAt(i);
+          int childSize =
+              child.getLeft()
+                  + child.getMeasuredWidth()
+                  + child.getPaddingLeft()
+                  + child.getPaddingRight();
+          width = Math.max(width, childSize);
         }
-      });
+      } else {
+        width = MeasureSpec.getSize(widthMeasureSpec);
+      }
+      int heightMode = MeasureSpec.getMode(heightMeasureSpec);
+      if (heightMode == MeasureSpec.AT_MOST || heightMode == MeasureSpec.UNSPECIFIED) {
+        for (int i = 0; i < getChildCount(); i++) {
+          View child = getChildAt(i);
+          int childSize =
+              child.getTop()
+                  + child.getMeasuredHeight()
+                  + child.getPaddingTop()
+                  + child.getPaddingBottom();
+          height = Math.max(height, childSize);
+        }
+      } else {
+        height = MeasureSpec.getSize(heightMeasureSpec);
+      }
+      setMeasuredDimension(width, height);
+      mWasMeasured = true;
+
+      // Check if we were waiting for onMeasure to attach the root view.
+      if (mReactInstanceManager != null && !mIsAttachedToInstance) {
+        attachToReactInstanceManager();
+        enableLayoutCalculation();
+      } else {
+        enableLayoutCalculation();
+        updateRootLayoutSpecs(mWidthMeasureSpec, mHeightMeasureSpec);
+      }
+
+    } finally {
+      Systrace.endSection(TRACE_TAG_REACT_JAVA_BRIDGE);
     }
+  }
+
+  @Override
+  public int getWidthMeasureSpec() {
+    if (!mWasMeasured && getLayoutParams() != null && getLayoutParams().width > 0) {
+      return MeasureSpec.makeMeasureSpec(getLayoutParams().width, MeasureSpec.EXACTLY);
+    }
+    return mWidthMeasureSpec;
+  }
+
+  @Override
+  public int getHeightMeasureSpec() {
+    if (!mWasMeasured && getLayoutParams() != null && getLayoutParams().height > 0) {
+      return MeasureSpec.makeMeasureSpec(getLayoutParams().height, MeasureSpec.EXACTLY);
+    }
+    return mHeightMeasureSpec;
   }
 
   @Override
@@ -111,14 +193,15 @@ public class ReactRootView extends SizeMonitoringFrameLayout implements RootView
         "Unable to dispatch touch to JS as the catalyst instance has not been attached");
       return;
     }
-    ReactContext reactContext = mReactInstanceManager.getCurrentReactContext();
-    EventDispatcher eventDispatcher = reactContext.getNativeModule(UIManagerModule.class)
-      .getEventDispatcher();
-    mJSTouchDispatcher.onChildStartedNativeGesture(androidEvent, eventDispatcher);
-    // Hook for containers or fragments to get informed of the on touch events to perform actions.
-    if (mOnGenericMotionListener != null) {
-      mOnGenericMotionListener.onGenericMotion(this, androidEvent);
+    if (mJSTouchDispatcher == null) {
+      FLog.w(
+        ReactConstants.TAG,
+        "Unable to dispatch touch to JS before the dispatcher is available");
+      return;
     }
+    ReactContext reactContext = mReactInstanceManager.getCurrentReactContext();
+    EventDispatcher eventDispatcher = reactContext.getNativeModule(UIManagerModule.class).getEventDispatcher();
+    mJSTouchDispatcher.onChildStartedNativeGesture(androidEvent, eventDispatcher);
   }
 
   @Override
@@ -136,8 +219,56 @@ public class ReactRootView extends SizeMonitoringFrameLayout implements RootView
     return true;
   }
 
-  public void setOnGenericMotionListener(OnGenericMotionListener listener) {
-    mOnGenericMotionListener = listener;
+  @Override
+  protected void dispatchDraw(Canvas canvas) {
+    try {
+      super.dispatchDraw(canvas);
+    } catch (StackOverflowError e) {
+      // Adding special exception management for StackOverflowError for logging purposes.
+      // This will be removed in the future.
+      handleException(e);
+    }
+  }
+
+  @Override
+  public boolean dispatchKeyEvent(KeyEvent ev) {
+    if (mReactInstanceManager == null || !mIsAttachedToInstance ||
+      mReactInstanceManager.getCurrentReactContext() == null) {
+      FLog.w(
+        ReactConstants.TAG,
+        "Unable to handle key event as the catalyst instance has not been attached");
+      return super.dispatchKeyEvent(ev);
+    }
+    mAndroidHWInputDeviceHelper.handleKeyEvent(ev);
+    return super.dispatchKeyEvent(ev);
+  }
+
+  @Override
+  protected void onFocusChanged(boolean gainFocus, int direction, Rect previouslyFocusedRect) {
+    if (mReactInstanceManager == null || !mIsAttachedToInstance ||
+      mReactInstanceManager.getCurrentReactContext() == null) {
+      FLog.w(
+        ReactConstants.TAG,
+        "Unable to handle focus changed event as the catalyst instance has not been attached");
+      super.onFocusChanged(gainFocus, direction, previouslyFocusedRect);
+      return;
+    }
+    mAndroidHWInputDeviceHelper.clearFocus();
+    super.onFocusChanged(gainFocus, direction, previouslyFocusedRect);
+  }
+
+  @Override
+  public void requestChildFocus(View child, View focused) {
+    if (mReactInstanceManager == null || !mIsAttachedToInstance ||
+      mReactInstanceManager.getCurrentReactContext() == null) {
+      FLog.w(
+        ReactConstants.TAG,
+        "Unable to handle child focus changed event as the catalyst instance has not been attached");
+      super.requestChildFocus(child, focused);
+      return;
+    }
+    mAndroidHWInputDeviceHelper.onFocusChanged(focused);
+    super.requestChildFocus(child, focused);
   }
 
   private void dispatchJSTouchEvent(MotionEvent event) {
@@ -148,16 +279,24 @@ public class ReactRootView extends SizeMonitoringFrameLayout implements RootView
         "Unable to dispatch touch to JS as the catalyst instance has not been attached");
       return;
     }
+    if (mJSTouchDispatcher == null) {
+      FLog.w(
+        ReactConstants.TAG,
+        "Unable to dispatch touch to JS before the dispatcher is available");
+      return;
+    }
     ReactContext reactContext = mReactInstanceManager.getCurrentReactContext();
-    EventDispatcher eventDispatcher = reactContext.getNativeModule(UIManagerModule.class)
-      .getEventDispatcher();
+    EventDispatcher eventDispatcher = reactContext.getNativeModule(UIManagerModule.class).getEventDispatcher();
     mJSTouchDispatcher.handleTouchEvent(event, eventDispatcher);
   }
 
   @Override
   public void requestDisallowInterceptTouchEvent(boolean disallowIntercept) {
-    // No-op - override in order to still receive events to onInterceptTouchEvent
-    // even when some other view disallow that
+    // Override in order to still receive events to onInterceptTouchEvent even when some other
+    // views disallow that, but propagate it up the tree if possible.
+    if (getParent() != null) {
+      getParent().requestDisallowInterceptTouchEvent(disallowIntercept);
+    }
   }
 
   @Override
@@ -169,7 +308,8 @@ public class ReactRootView extends SizeMonitoringFrameLayout implements RootView
   protected void onAttachedToWindow() {
     super.onAttachedToWindow();
     if (mIsAttachedToInstance) {
-      getViewTreeObserver().addOnGlobalLayoutListener(getKeyboardListener());
+      removeOnGlobalLayoutListener();
+      getViewTreeObserver().addOnGlobalLayoutListener(getCustomGlobalLayoutListener());
     }
   }
 
@@ -177,7 +317,24 @@ public class ReactRootView extends SizeMonitoringFrameLayout implements RootView
   protected void onDetachedFromWindow() {
     super.onDetachedFromWindow();
     if (mIsAttachedToInstance) {
-      getViewTreeObserver().removeOnGlobalLayoutListener(getKeyboardListener());
+      removeOnGlobalLayoutListener();
+    }
+  }
+
+  private void removeOnGlobalLayoutListener() {
+    getViewTreeObserver().removeOnGlobalLayoutListener(getCustomGlobalLayoutListener());
+  }
+
+  @Override
+  public void onViewAdded(View child) {
+    super.onViewAdded(child);
+
+    if (mShouldLogContentAppeared) {
+      mShouldLogContentAppeared = false;
+
+      if (mJSModuleName != null) {
+        ReactMarker.logMarker(ReactMarkerConstants.CONTENT_APPEARED, mJSModuleName, mRootViewTag);
+      }
     }
   }
 
@@ -189,6 +346,13 @@ public class ReactRootView extends SizeMonitoringFrameLayout implements RootView
   }
 
   /**
+   * {@see #startReactApplication(ReactInstanceManager, String, android.os.Bundle, String)}
+   */
+  public void startReactApplication(ReactInstanceManager reactInstanceManager, String moduleName, @Nullable Bundle initialProperties) {
+    startReactApplication(reactInstanceManager, moduleName, initialProperties, null);
+  }
+
+  /**
    * Schedule rendering of the react component rendered by the JS application from the given JS
    * module (@{param moduleName}) using provided {@param reactInstanceManager} to attach to the
    * JS context of that manager. Extra parameter {@param launchOptions} can be used to pass initial
@@ -197,77 +361,184 @@ public class ReactRootView extends SizeMonitoringFrameLayout implements RootView
   public void startReactApplication(
       ReactInstanceManager reactInstanceManager,
       String moduleName,
-      @Nullable Bundle launchOptions) {
-    UiThreadUtil.assertOnUiThread();
+      @Nullable Bundle initialProperties,
+      @Nullable String initialUITemplate) {
+    Systrace.beginSection(TRACE_TAG_REACT_JAVA_BRIDGE, "startReactApplication");
+    try {
+      UiThreadUtil.assertOnUiThread();
 
-    // TODO(6788889): Use POJO instead of bundle here, apparently we can't just use WritableMap
-    // here as it may be deallocated in native after passing via JNI bridge, but we want to reuse
-    // it in the case of re-creating the catalyst instance
-    Assertions.assertCondition(
+      // TODO(6788889): Use POJO instead of bundle here, apparently we can't just use WritableMap
+      // here as it may be deallocated in native after passing via JNI bridge, but we want to reuse
+      // it in the case of re-creating the catalyst instance
+      Assertions.assertCondition(
         mReactInstanceManager == null,
         "This root view has already been attached to a catalyst instance manager");
 
-    mReactInstanceManager = reactInstanceManager;
-    mJSModuleName = moduleName;
-    mLaunchOptions = launchOptions;
+      mReactInstanceManager = reactInstanceManager;
+      mJSModuleName = moduleName;
+      mAppProperties = initialProperties;
+      mInitialUITemplate = initialUITemplate;
 
-    if (!mReactInstanceManager.hasStartedCreatingInitialContext()) {
-      mReactInstanceManager.createReactContextInBackground();
-    }
+      if (!mReactInstanceManager.hasStartedCreatingInitialContext()) {
+        mReactInstanceManager.createReactContextInBackground();
+      }
 
-    // We need to wait for the initial onMeasure, if this view has not yet been measured, we set which
-    // will make this view startReactApplication itself to instance manager once onMeasure is called.
-    if (mWasMeasured) {
       attachToReactInstanceManager();
+
+    } finally {
+      Systrace.endSection(TRACE_TAG_REACT_JAVA_BRIDGE);
+    }
+  }
+
+  private void enableLayoutCalculation() {
+    if (mReactInstanceManager == null) {
+      FLog.w(
+          ReactConstants.TAG,
+          "Unable to enable layout calculation for uninitialized ReactInstanceManager");
+      return;
+    }
+    final ReactContext reactApplicationContext = mReactInstanceManager.getCurrentReactContext();
+    if (reactApplicationContext != null) {
+      reactApplicationContext
+          .getCatalystInstance()
+          .getNativeModule(UIManagerModule.class)
+          .getUIImplementation()
+          .enableLayoutCalculationForRootNode(getRootViewTag());
+    }
+  }
+
+  private void updateRootLayoutSpecs(final int widthMeasureSpec, final int heightMeasureSpec) {
+    if (mReactInstanceManager == null) {
+      FLog.w(
+          ReactConstants.TAG,
+          "Unable to update root layout specs for uninitialized ReactInstanceManager");
+      return;
+    }
+    final ReactContext reactApplicationContext = mReactInstanceManager.getCurrentReactContext();
+
+    if (reactApplicationContext != null) {
+      UIManagerHelper.getUIManager(reactApplicationContext, getUIManagerType())
+        .updateRootLayoutSpecs(getRootViewTag(), widthMeasureSpec, heightMeasureSpec);
     }
   }
 
   /**
    * Unmount the react application at this root view, reclaiming any JS memory associated with that
    * application. If {@link #startReactApplication} is called, this method must be called before the
-   * ReactRootView is garbage collected (typically in your Activity's onDestroy, or in your Fragment's
-   * onDestroyView).
+   * ReactRootView is garbage collected (typically in your Activity's onDestroy, or in your
+   * Fragment's onDestroyView).
    */
   public void unmountReactApplication() {
     if (mReactInstanceManager != null && mIsAttachedToInstance) {
       mReactInstanceManager.detachRootView(this);
+      mReactInstanceManager = null;
       mIsAttachedToInstance = false;
     }
+    mShouldLogContentAppeared = false;
+  }
+
+  public void onAttachedToReactInstance() {
+    // Create the touch dispatcher here instead of having it always available, to make sure
+    // that all touch events are only passed to JS after React/JS side is ready to consume
+    // them. Otherwise, these events might break the states expected by JS.
+    // Note that this callback was invoked from within the UI thread.
+    mJSTouchDispatcher = new JSTouchDispatcher(this);
+    if (mRootViewEventListener != null) {
+      mRootViewEventListener.onAttachedToReactInstance(this);
+    }
+  }
+
+  public void setEventListener(ReactRootViewEventListener eventListener) {
+    mRootViewEventListener = eventListener;
   }
 
   /* package */ String getJSModuleName() {
     return Assertions.assertNotNull(mJSModuleName);
   }
 
-  /* package */ @Nullable Bundle getLaunchOptions() {
-    return mLaunchOptions;
+  public @Nullable Bundle getAppProperties() {
+    return mAppProperties;
+  }
+
+  public @Nullable String getInitialUITemplate() {
+    return mInitialUITemplate;
+  }
+
+  public void setAppProperties(@Nullable Bundle appProperties) {
+    UiThreadUtil.assertOnUiThread();
+    mAppProperties = appProperties;
+    if (getRootViewTag() != 0) {
+      runApplication();
+    }
   }
 
   /**
-   * Is used by unit test to setup mWasMeasured and mIsAttachedToWindow flags, that will let this
+   * Calls into JS to start the React application. Can be called multiple times with the
+   * same rootTag, which will re-render the application from the root.
+   */
+  /* package */ void runApplication() {
+      Systrace.beginSection(TRACE_TAG_REACT_JAVA_BRIDGE, "ReactRootView.runApplication");
+      try {
+        if (mReactInstanceManager == null || !mIsAttachedToInstance) {
+          return;
+        }
+
+        ReactContext reactContext = mReactInstanceManager.getCurrentReactContext();
+        if (reactContext == null) {
+          return;
+        }
+
+        CatalystInstance catalystInstance = reactContext.getCatalystInstance();
+
+        WritableNativeMap appParams = new WritableNativeMap();
+        appParams.putDouble("rootTag", getRootViewTag());
+        @Nullable Bundle appProperties = getAppProperties();
+        if (appProperties != null) {
+          appParams.putMap("initialProps", Arguments.fromBundle(appProperties));
+        }
+        if (getUIManagerType() == FABRIC) {
+          appParams.putBoolean("fabric", true);
+        }
+
+        mShouldLogContentAppeared = true;
+
+        String jsAppModuleName = getJSModuleName();
+        catalystInstance.getJSModule(AppRegistry.class).runApplication(jsAppModuleName, appParams);
+      } finally {
+        Systrace.endSection(TRACE_TAG_REACT_JAVA_BRIDGE);
+      }
+  }
+
+  /**
+   * Is used by unit test to setup mIsAttachedToWindow flags, that will let this
    * view to be properly attached to catalyst instance by startReactApplication call
    */
   @VisibleForTesting
   /* package */ void simulateAttachForTesting() {
     mIsAttachedToInstance = true;
-    mWasMeasured = true;
+    mJSTouchDispatcher = new JSTouchDispatcher(this);
   }
 
-  private KeyboardListener getKeyboardListener() {
-    if (mKeyboardListener == null) {
-      mKeyboardListener = new KeyboardListener();
+  private CustomGlobalLayoutListener getCustomGlobalLayoutListener() {
+    if (mCustomGlobalLayoutListener == null) {
+      mCustomGlobalLayoutListener = new CustomGlobalLayoutListener();
     }
-    return mKeyboardListener;
+    return mCustomGlobalLayoutListener;
   }
 
   private void attachToReactInstanceManager() {
-    if (mIsAttachedToInstance) {
-      return;
-    }
+    Systrace.beginSection(TRACE_TAG_REACT_JAVA_BRIDGE, "attachToReactInstanceManager");
+    try {
+      if (mIsAttachedToInstance) {
+        return;
+      }
 
-    mIsAttachedToInstance = true;
-    Assertions.assertNotNull(mReactInstanceManager).attachMeasuredRootView(this);
-    getViewTreeObserver().addOnGlobalLayoutListener(getKeyboardListener());
+      mIsAttachedToInstance = true;
+      Assertions.assertNotNull(mReactInstanceManager).attachRootView(this);
+      getViewTreeObserver().addOnGlobalLayoutListener(getCustomGlobalLayoutListener());
+    } finally {
+      Systrace.endSection(TRACE_TAG_REACT_JAVA_BRIDGE);
+    }
   }
 
   @Override
@@ -275,19 +546,64 @@ public class ReactRootView extends SizeMonitoringFrameLayout implements RootView
     super.finalize();
     Assertions.assertCondition(
       !mIsAttachedToInstance,
-      "The application this ReactRootView was rendering was not unmounted before the ReactRootView " +
-        "was garbage collected. This usually means that your application is leaking large amounts of " +
-        "memory. To solve this, make sure to call ReactRootView#unmountReactApplication in the onDestroy() " +
-        "of your hosting Activity or in the onDestroyView() of your hosting Fragment.");
+      "The application this ReactRootView was rendering was not unmounted before the " +
+        "ReactRootView was garbage collected. This usually means that your application is " +
+        "leaking large amounts of memory. To solve this, make sure to call " +
+        "ReactRootView#unmountReactApplication in the onDestroy() of your hosting Activity or in " +
+        "the onDestroyView() of your hosting Fragment.");
   }
 
-  private class KeyboardListener implements ViewTreeObserver.OnGlobalLayoutListener {
+  public int getRootViewTag() {
+    return mRootViewTag;
+  }
+
+  public void setRootViewTag(int rootViewTag) {
+    mRootViewTag = rootViewTag;
+  }
+
+  @Override
+  public void handleException(final Throwable t) {
+    if (mReactInstanceManager == null
+      || mReactInstanceManager.getCurrentReactContext() == null) {
+        throw new RuntimeException(t);
+    }
+
+    Exception e = new IllegalViewOperationException(t.getMessage(), this, t);
+    mReactInstanceManager.getCurrentReactContext().handleException(e);
+  }
+
+  public void setIsFabric(boolean isFabric) {
+    mUIManagerType = isFabric ? FABRIC : DEFAULT;
+  }
+
+  public @UIManagerType int getUIManagerType() {
+    return mUIManagerType;
+  }
+
+  @Nullable
+  public ReactInstanceManager getReactInstanceManager() {
+    return mReactInstanceManager;
+  }
+
+  /* package */ void sendEvent(String eventName, @Nullable WritableMap params) {
+    if (mReactInstanceManager != null) {
+      mReactInstanceManager.getCurrentReactContext()
+        .getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter.class)
+        .emit(eventName, params);
+    }
+  }
+
+  private class CustomGlobalLayoutListener implements ViewTreeObserver.OnGlobalLayoutListener {
     private final Rect mVisibleViewArea;
     private final int mMinKeyboardHeightDetected;
 
     private int mKeyboardHeight = 0;
+    private int mDeviceRotation = 0;
+    private DisplayMetrics mWindowMetrics = new DisplayMetrics();
+    private DisplayMetrics mScreenMetrics = new DisplayMetrics();
 
-    /* package */ KeyboardListener() {
+    /* package */ CustomGlobalLayoutListener() {
+      DisplayMetricsHolder.initDisplayMetricsIfNotInitialized(getContext().getApplicationContext());
       mVisibleViewArea = new Rect();
       mMinKeyboardHeightDetected = (int) PixelUtil.toPixelFromDIP(60);
     }
@@ -295,16 +611,18 @@ public class ReactRootView extends SizeMonitoringFrameLayout implements RootView
     @Override
     public void onGlobalLayout() {
       if (mReactInstanceManager == null || !mIsAttachedToInstance ||
-          mReactInstanceManager.getCurrentReactContext() == null) {
-        FLog.w(
-            ReactConstants.TAG,
-            "Unable to dispatch keyboard events in JS as the react instance has not been attached");
+        mReactInstanceManager.getCurrentReactContext() == null) {
         return;
       }
+      checkForKeyboardEvents();
+      checkForDeviceOrientationChanges();
+      checkForDeviceDimensionsChanges();
+    }
 
+    private void checkForKeyboardEvents() {
       getRootView().getWindowVisibleDisplayFrame(mVisibleViewArea);
       final int heightDiff =
-          DisplayMetricsHolder.getWindowDisplayMetrics().heightPixels - mVisibleViewArea.bottom;
+        DisplayMetricsHolder.getWindowDisplayMetrics().heightPixels - mVisibleViewArea.bottom;
       if (mKeyboardHeight != heightDiff && heightDiff > mMinKeyboardHeightDetected) {
         // keyboard is now showing, or the keyboard height has changed
         mKeyboardHeight = heightDiff;
@@ -323,12 +641,85 @@ public class ReactRootView extends SizeMonitoringFrameLayout implements RootView
       }
     }
 
-    private void sendEvent(String eventName, @Nullable WritableMap params) {
-      if (mReactInstanceManager != null) {
-        mReactInstanceManager.getCurrentReactContext()
-            .getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter.class)
-            .emit(eventName, params);
+    private void checkForDeviceOrientationChanges() {
+      final int rotation =
+        ((WindowManager) getContext().getSystemService(Context.WINDOW_SERVICE))
+          .getDefaultDisplay().getRotation();
+      if (mDeviceRotation == rotation) {
+        return;
       }
+      mDeviceRotation = rotation;
+      emitOrientationChanged(rotation);
+    }
+
+    private void checkForDeviceDimensionsChanges() {
+      // Get current display metrics.
+      DisplayMetricsHolder.initDisplayMetrics(getContext());
+      // Check changes to both window and screen display metrics since they may not update at the same time.
+      if (!areMetricsEqual(mWindowMetrics, DisplayMetricsHolder.getWindowDisplayMetrics()) ||
+        !areMetricsEqual(mScreenMetrics, DisplayMetricsHolder.getScreenDisplayMetrics())) {
+        mWindowMetrics.setTo(DisplayMetricsHolder.getWindowDisplayMetrics());
+        mScreenMetrics.setTo(DisplayMetricsHolder.getScreenDisplayMetrics());
+        emitUpdateDimensionsEvent();
+      }
+    }
+
+    private boolean areMetricsEqual(DisplayMetrics displayMetrics, DisplayMetrics otherMetrics) {
+      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN_MR1) {
+        return displayMetrics.equals(otherMetrics);
+      } else {
+        // DisplayMetrics didn't have an equals method before API 17.
+        // Check all public fields manually.
+        return displayMetrics.widthPixels == otherMetrics.widthPixels &&
+          displayMetrics.heightPixels == otherMetrics.heightPixels &&
+          displayMetrics.density == otherMetrics.density &&
+          displayMetrics.densityDpi == otherMetrics.densityDpi &&
+          displayMetrics.scaledDensity == otherMetrics.scaledDensity &&
+          displayMetrics.xdpi == otherMetrics.xdpi &&
+          displayMetrics.ydpi == otherMetrics.ydpi;
+      }
+    }
+
+    private void emitOrientationChanged(final int newRotation) {
+      String name;
+      double rotationDegrees;
+      boolean isLandscape = false;
+
+      switch (newRotation) {
+        case Surface.ROTATION_0:
+          name = "portrait-primary";
+          rotationDegrees = 0.0;
+          break;
+        case Surface.ROTATION_90:
+          name = "landscape-primary";
+          rotationDegrees = -90.0;
+          isLandscape = true;
+          break;
+        case Surface.ROTATION_180:
+          name = "portrait-secondary";
+          rotationDegrees = 180.0;
+          break;
+        case Surface.ROTATION_270:
+          name = "landscape-secondary";
+          rotationDegrees = 90.0;
+          isLandscape = true;
+          break;
+        default:
+          return;
+      }
+      WritableMap map = Arguments.createMap();
+      map.putString("name", name);
+      map.putDouble("rotationDegrees", rotationDegrees);
+      map.putBoolean("isLandscape", isLandscape);
+
+      sendEvent("namedOrientationDidChange", map);
+    }
+
+    private void emitUpdateDimensionsEvent() {
+      mReactInstanceManager
+          .getCurrentReactContext()
+          .getNativeModule(DeviceInfoModule.class)
+          .emitUpdateDimensionsEvent();
     }
   }
 }

@@ -1,7 +1,11 @@
-// Copyright 2004-present Facebook. All Rights Reserved.
+// Copyright (c) Facebook, Inc. and its affiliates.
+
+// This source code is licensed under the MIT license found in the
+// LICENSE file in the root directory of this source tree.
 
 #include <fb/lyra.h>
 
+#include <ios>
 #include <memory>
 #include <vector>
 
@@ -14,6 +18,21 @@ namespace facebook {
 namespace lyra {
 
 namespace {
+
+class IosFlagsSaver {
+  ios_base& ios_;
+  ios_base::fmtflags flags_;
+
+ public:
+  IosFlagsSaver(ios_base& ios)
+  : ios_(ios),
+    flags_(ios.flags())
+  {}
+
+  ~IosFlagsSaver() {
+    ios_.flags(flags_);
+  }
+};
 
 struct BacktraceState {
   size_t skip;
@@ -71,6 +90,8 @@ void getStackTraceSymbols(vector<StackTraceElement>& symbols,
 }
 
 ostream& operator<<(ostream& out, const StackTraceElement& elm) {
+  IosFlagsSaver flags{out};
+
   // TODO(t10748683): Add build id to the output
   out << "{dso=" << elm.libraryName() << " offset=" << hex
       << showbase << elm.libraryOffset();
@@ -88,6 +109,8 @@ ostream& operator<<(ostream& out, const StackTraceElement& elm) {
 // TODO(t10737667): The implement a tool that parse the stack trace and
 // symbolicate it
 ostream& operator<<(ostream& out, const vector<StackTraceElement>& trace) {
+  IosFlagsSaver flags{out};
+
   auto i = 0;
   out << "Backtrace:\n";
   for (auto& elm : trace) {
