@@ -403,6 +403,12 @@ RCT_NOT_IMPLEMENTED(- (instancetype)initWithFrame:(CGRect)frame)
       return NO;
     }
   }
+  if (self.isPureNumber && (UIKeyboardTypeDecimalPad == backedTextInputView.keyboardType || UIKeyboardTypeNumberPad == backedTextInputView.keyboardType)) {
+      bool checkResult = [self validateNumber:text withDot:UIKeyboardTypeDecimalPad == backedTextInputView.keyboardType];
+      if (!checkResult) {
+          return NO;
+      }
+  }
 
   NSString *previousText = backedTextInputView.attributedText.string ?: @"";
   
@@ -426,6 +432,23 @@ RCT_NOT_IMPLEMENTED(- (instancetype)initWithFrame:(CGRect)frame)
 
   return YES;
 }
+
+- (BOOL)validateNumber:(NSString*)number withDot:(BOOL)dot{
+    BOOL res = YES;
+    NSCharacterSet* tmpSet = [NSCharacterSet characterSetWithCharactersInString:dot ? @".0123456789" : @"0123456789"];
+    int i = 0;
+    while (i < number.length) {
+        NSString * string = [number substringWithRange:NSMakeRange(i, 1)];
+        NSRange range = [string rangeOfCharacterFromSet:tmpSet];
+        if (range.length == 0) {
+            res = NO;
+            break;
+        }
+        i++;
+    }
+    return res;
+}
+
 
 - (void)textInputDidChange
 {
