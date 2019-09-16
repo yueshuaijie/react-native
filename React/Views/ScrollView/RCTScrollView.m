@@ -23,6 +23,8 @@
 #import "RCTRefreshControl.h"
 #endif
 
+#import <CBGRefresh/CBGRefreshHeader.h>
+
 @interface RCTScrollEvent : NSObject <RCTEvent>
 
 - (instancetype)initWithEventName:(NSString *)eventName
@@ -154,6 +156,8 @@ RCT_NOT_IMPLEMENTED(- (instancetype)init)
 @interface RCTCustomScrollView : UIScrollView<UIGestureRecognizerDelegate>
 
 @property (nonatomic, assign) BOOL centerContent;
+@property (nonatomic, assign) BOOL endBounces;
+
 #if !TARGET_OS_TV
 @property (nonatomic, strong) UIView<RCTCustomRefreshContolProtocol> *customRefreshControl;
 @property (nonatomic, assign) BOOL pinchGestureEnabled;
@@ -376,6 +380,8 @@ RCT_NOT_IMPLEMENTED(- (instancetype)init)
   uint16_t _coalescingKey;
   NSString *_lastEmittedEventName;
   NSHashTable *_scrollListeners;
+  CFAbsoluteTime _startRefreshTime;
+  CFAbsoluteTime _endRefreshTime;
 }
 
 - (instancetype)initWithEventDispatcher:(RCTEventDispatcher *)eventDispatcher
@@ -639,6 +645,74 @@ static inline void RCTApplyTransformationAccordingLayoutDirection(UIView *view, 
                       updateOffset:YES];
 }
 
+#pragma mark Refresh API
+- (void)setRefreshHeaderForceSyncBackgroundColor:(BOOL)refreshHeaderForceSyncBackgroundColor
+{
+    _refreshHeaderForceSyncBackgroundColor = refreshHeaderForceSyncBackgroundColor;
+    if (_scrollView.mj_header && _refreshHeaderForceSyncBackgroundColor) {
+        _scrollView.mj_header.backgroundColor = _scrollView.superview.backgroundColor;
+    }
+}
+
+- (void)setEnablePullToRefresh:(BOOL)enablePullToRefresh
+{
+    _enablePullToRefresh = enablePullToRefresh;
+    if (enablePullToRefresh) {
+        if (_scrollView.mj_header == nil) {
+            _scrollView.mj_header = [CBGRefreshHeader headerWithRefreshingTarget:self refreshingAction:@selector(refreshAction)];
+            if (_refreshHeaderForceSyncBackgroundColor) {
+                _scrollView.mj_header.backgroundColor = _scrollView.superview.backgroundColor;
+            }
+            _currentRefreshingState = NO;
+        }
+    } else {
+        _scrollView.mj_header = nil;
+        _currentRefreshingState = NO;
+    }
+}
+
+- (void)setIsOnPullToRefresh:(BOOL)isOnPullToRefresh
+{
+    if (_currentRefreshingState != isOnPullToRefresh) {
+        _currentRefreshingState = isOnPullToRefresh;
+        if (isOnPullToRefresh) {
+            _startRefreshTime = CFAbsoluteTimeGetCurrent();
+            if ([_scrollView.mj_header respondsToSelector:@selector(beginRefreshingNoShouldRefreshingCallback)]) {
+                [_scrollView.mj_header beginRefreshingNoShouldRefreshingCallback];
+            }
+        } else {
+            _endRefreshTime = CFAbsoluteTimeGetCurrent();
+            if (_startRefreshTime && (_endRefreshTime - _startRefreshTime) < 500) {
+                dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.25 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+                    [_scrollView.mj_header endRefreshing];
+                });
+            } else {
+                [_scrollView.mj_header endRefreshing];
+            }
+        }
+    }
+}
+
+- (void)startPullToRefresh
+{
+    _isOnPullToRefresh = YES;
+    [_scrollView.mj_header beginRefreshing];
+    
+}
+
+- (void)stopPullToRefresh
+{
+    _isOnPullToRefresh = NO;
+    [_scrollView.mj_header endRefreshing];
+}
+
+- (void)refreshAction
+{
+    _currentRefreshingState = _scrollView.mj_header.isRefreshing;
+    !self.onLoadRefreshingAction ? : self.onLoadRefreshingAction(nil);
+}
+
+
 #pragma mark - ScrollView delegate
 
 #define RCT_SEND_SCROLL_EVENT(_eventName, _userData) { \
@@ -678,6 +752,12 @@ RCT_SCROLL_EVENT_HANDLER(scrollViewDidScrollToTop, onScrollToTop)
 {
   NSTimeInterval now = CACurrentMediaTime();
   [self updateClippedSubviews];
+    
+  // 只支持底部的bounces
+  if (_scrollView.endBounces) {
+    _scrollView.bounces = (scrollView.contentOffset.y <= 0) ? NO : YES;
+  }
+
   /**
    * TODO: this logic looks wrong, and it may be because it is. Currently, if _scrollEventThrottle
    * is set to zero (the default), the "didScroll" event is only sent once per scroll, instead of repeatedly
@@ -1109,6 +1189,7 @@ RCT_SCROLL_EVENT_HANDLER(scrollViewDidScrollToTop, onScrollToTop)
 RCT_SET_AND_PRESERVE_OFFSET(setAlwaysBounceHorizontal, alwaysBounceHorizontal, BOOL)
 RCT_SET_AND_PRESERVE_OFFSET(setAlwaysBounceVertical, alwaysBounceVertical, BOOL)
 RCT_SET_AND_PRESERVE_OFFSET(setBounces, bounces, BOOL)
+RCT_SET_AND_PRESERVE_OFFSET(setEndBounces, endBounces, BOOL)
 RCT_SET_AND_PRESERVE_OFFSET(setBouncesZoom, bouncesZoom, BOOL)
 RCT_SET_AND_PRESERVE_OFFSET(setCanCancelContentTouches, canCancelContentTouches, BOOL)
 RCT_SET_AND_PRESERVE_OFFSET(setDecelerationRate, decelerationRate, CGFloat)

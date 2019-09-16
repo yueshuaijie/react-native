@@ -57,6 +57,7 @@ RCT_EXPORT_MODULE()
 RCT_EXPORT_VIEW_PROPERTY(alwaysBounceHorizontal, BOOL)
 RCT_EXPORT_VIEW_PROPERTY(alwaysBounceVertical, BOOL)
 RCT_EXPORT_VIEW_PROPERTY(bounces, BOOL)
+RCT_EXPORT_VIEW_PROPERTY(endBounces, BOOL)
 RCT_EXPORT_VIEW_PROPERTY(bouncesZoom, BOOL)
 RCT_EXPORT_VIEW_PROPERTY(canCancelContentTouches, BOOL)
 RCT_EXPORT_VIEW_PROPERTY(centerContent, BOOL)
@@ -97,6 +98,12 @@ RCT_EXPORT_VIEW_PROPERTY(DEPRECATED_sendUpdatedChildFrames, BOOL)
 #if defined(__IPHONE_OS_VERSION_MAX_ALLOWED) && __IPHONE_OS_VERSION_MAX_ALLOWED >= 110000 /* __IPHONE_11_0 */
 RCT_EXPORT_VIEW_PROPERTY(contentInsetAdjustmentBehavior, UIScrollViewContentInsetAdjustmentBehavior)
 #endif
+
+RCT_EXPORT_VIEW_PROPERTY(onLoadRefreshingAction, RCTDirectEventBlock)
+RCT_EXPORT_VIEW_PROPERTY(enablePullToRefresh, BOOL)
+RCT_EXPORT_VIEW_PROPERTY(isOnPullToRefresh, BOOL)
+RCT_EXPORT_VIEW_PROPERTY(refreshHeaderForceSyncBackgroundColor, BOOL)
+
 
 // overflow is used both in css-layout as well as by react-native. In css-layout
 // we always want to treat overflow as scroll but depending on what the overflow
@@ -208,6 +215,32 @@ RCT_EXPORT_METHOD(flashScrollIndicators:(nonnull NSNumber *)reactTag)
 
      [view.scrollView flashScrollIndicators];
    }];
+}
+
+RCT_EXPORT_METHOD(startPullToRefresh:(nonnull NSNumber *)reactTag)
+{
+    [self.bridge.uiManager addUIBlock:
+     ^(__unused RCTUIManager *uiManager, NSDictionary<NSNumber *, RCTScrollView *> *viewRegistry) {
+         RCTScrollView *view = viewRegistry[reactTag];
+         if (!view || ![view isKindOfClass:[RCTScrollView class]]) {
+             RCTLogError(@"Cannot find RCTScrollView with tag #%@", reactTag);
+             return;
+         }
+         [view startPullToRefresh];
+     }];
+}
+
+RCT_EXPORT_METHOD(stopPullToRefresh:(nonnull NSNumber *)reactTag)
+{
+    [self.bridge.uiManager addUIBlock:
+     ^(__unused RCTUIManager *uiManager, NSDictionary<NSNumber *, RCTScrollView *> *viewRegistry) {
+         RCTScrollView *view = viewRegistry[reactTag];
+         if (!view || ![view isKindOfClass:[RCTScrollView class]]) {
+             RCTLogError(@"Cannot find RCTScrollView with tag #%@", reactTag);
+             return;
+         }
+         [view stopPullToRefresh];
+     }];
 }
 
 @end
