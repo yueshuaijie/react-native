@@ -283,6 +283,12 @@ var WebView = React.createClass({
      */
     schemeArr: PropTypes.array,
 
+
+    /**
+     * custom defined schemes
+     */
+    definedSchemes: PropTypes.array,
+
     /**
      * Boolean that controls whether the web content is scaled to fit
      * the view and enables the user to change the scale. The default value
@@ -402,6 +408,7 @@ var WebView = React.createClass({
         allowsInlineMediaPlayback={this.props.allowsInlineMediaPlayback}
         mediaPlaybackRequiresUserAction={this.props.mediaPlaybackRequiresUserAction}
         schemeArr={this.props.schemeArr}
+        definedSchemes={this.props.definedSchemes}
       />;
 
     return (

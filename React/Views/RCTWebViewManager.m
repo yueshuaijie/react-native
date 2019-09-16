@@ -50,6 +50,7 @@ RCT_EXPORT_VIEW_PROPERTY(onShouldStartLoadWithRequest, RCTDirectEventBlock)
 RCT_REMAP_VIEW_PROPERTY(allowsInlineMediaPlayback, _webView.allowsInlineMediaPlayback, BOOL)
 RCT_REMAP_VIEW_PROPERTY(mediaPlaybackRequiresUserAction, _webView.mediaPlaybackRequiresUserAction, BOOL)
 RCT_EXPORT_VIEW_PROPERTY(schemeArr, NSArray)
+RCT_EXPORT_VIEW_PROPERTY(definedSchemes, NSArray)
 
 
 RCT_EXPORT_METHOD(goBack:(nonnull NSNumber *)reactTag)
@@ -174,9 +175,18 @@ shouldStartLoadForRequest:(NSMutableDictionary<NSString *, id> *)request
     RCTLogWarn(@"Did not receive response to shouldStartLoad in time, defaulting to YES");
     NSString *url = request[@"url"];
 
-    if ([url rangeOfString:@"native_call"].location != NSNotFound || [url rangeOfString:@"inner_action"].location != NSNotFound || [url rangeOfString:@"inner-action"].location != NSNotFound  || [url rangeOfString:@"cc-ds-ios"].location != NSNotFound) {
-      return NO;
+    if (webView.definedSchemes.count) {
+        for (NSString *definedScheme in webView.definedSchemes) {
+            if ([url rangeOfString:definedScheme].location != NSNotFound) {
+                return NO;
+            }
+        }
+    } else {
+        if ([url rangeOfString:@"native_call"].location != NSNotFound || [url rangeOfString:@"inner_action"].location != NSNotFound || [url rangeOfString:@"inner-action"].location != NSNotFound || [url rangeOfString:@"uploadimage"].location != NSNotFound || [url rangeOfString:@"onlineservice"].location != NSNotFound || [url rangeOfString:@"cc-ds-ios"].location != NSNotFound) {
+              return NO;
+        }
     }
+      
     return YES;
   }
 }
