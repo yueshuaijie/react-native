@@ -182,7 +182,7 @@ shouldStartLoadForRequest:(NSMutableDictionary<NSString *, id> *)request
             }
         }
     } else {
-        if ([url rangeOfString:@"native_call"].location != NSNotFound || [url rangeOfString:@"inner_action"].location != NSNotFound || [url rangeOfString:@"inner-action"].location != NSNotFound || [url rangeOfString:@"uploadimage"].location != NSNotFound || [url rangeOfString:@"onlineservice"].location != NSNotFound || [url rangeOfString:@"cc-ds-ios"].location != NSNotFound) {
+        if ([url rangeOfString:@"native_call"].location != NSNotFound || [url rangeOfString:@"inner_action://"].location != NSNotFound || [url rangeOfString:@"inner-action://"].location != NSNotFound || [url rangeOfString:@"uploadimage://"].location != NSNotFound || [url rangeOfString:@"onlineservice://"].location != NSNotFound || [url rangeOfString:@"cc-ds-ios://"].location != NSNotFound) {
               return NO;
         }
     }
