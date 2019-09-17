@@ -493,7 +493,6 @@ static UIImage *RCTResizeImageIfNeeded(UIImage *image,
         // Check for system errors
         if (error) {
             completionHandler(error, nil, response);
-            [[NSNotificationCenter defaultCenter] postNotificationName:RCTImgError object:@{@"url":[request.URL absoluteString], @"info":[error localizedDescription], @"code":[NSString stringWithFormat:@"%ld", [error code]]}];
             return;
         } else if (!response) {
             completionHandler(RCTErrorWithMessage(@"Response metadata error"), nil, response);
@@ -542,11 +541,18 @@ static UIImage *RCTResizeImageIfNeeded(UIImage *image,
                                    someError = RCTErrorWithMessage(@"Unknown image download error");
                                }
                                completionHandler(someError, nil, response);
+                               [[NSNotificationCenter defaultCenter] postNotificationName:RCTImgError object:@{@"url":[request.URL absoluteString], @"info":[someError localizedDescription], @"code":[NSString stringWithFormat:@"%ld", [someError code]]}];
                                [strongSelf dequeueTasks];
                                return;
                            }
 
                            dispatch_async(strongSelf->_URLRequestQueue, ^{
+                               if ([response isKindOfClass:[NSHTTPURLResponse class]]) {
+                                   NSInteger statusCode = ((NSHTTPURLResponse *)response).statusCode;
+                                   if (statusCode >= 300) {
+                                       [[NSNotificationCenter defaultCenter] postNotificationName:RCTImgError object:@{@"url":[request.URL absoluteString], @"info":[NSString stringWithFormat:@"%ld", statusCode], @"code":[NSString stringWithFormat:@"%ld", [error code]]}];
+                                   }
+                               }
                                // Process image data
                                processResponse(response, data, nil);
 
