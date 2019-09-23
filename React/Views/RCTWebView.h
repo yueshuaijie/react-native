@@ -37,6 +37,8 @@ shouldStartLoadForRequest:(NSMutableDictionary<NSString *, id> *)request
 @property (nonatomic, copy) NSString *injectedJavaScript;
 @property (nonatomic, assign) BOOL scalesPageToFit;
 @property (nonatomic, copy) NSArray* schemeArr;
+@property (nonatomic, copy) NSArray* definedSchemes;
+
 
 - (void)goForward;
 - (void)goBack;
