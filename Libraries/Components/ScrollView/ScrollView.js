@@ -506,6 +506,7 @@ const ScrollView = React.createClass({
       ...this.props,
       alwaysBounceHorizontal,
       alwaysBounceVertical,
+      scrollIndicatorInsets: { top: 1, left: 0, bottom: 0, right: 0 },
       style: ([baseStyle, this.props.style]: ?Array<any>),
       onTouchStart: this.scrollResponderHandleTouchStart,
       onTouchMove: this.scrollResponderHandleTouchMove,
