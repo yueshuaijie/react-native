@@ -20,6 +20,9 @@
 
 static const NSUInteger RCTMaxCachableDecodedImageSizeInBytes = 2097152; // 2 MB
 
+static const NSUInteger RCTCleanImgCacheSinceNow = 60 * 60 * 24 * 7;//清除7天的缓存
+
+
 static NSString *RCTCacheKeyForImage(NSString *imageTag, CGSize size, CGFloat scale,
                                      RCTResizeMode resizeMode)
 {
@@ -70,15 +73,18 @@ static NSString *RCTCacheKeyForImage(NSString *imageTag, CGSize size, CGFloat sc
 - (void)addImageToCache:(UIImage *)image
                  forKey:(NSString *)cacheKey
 {
-  if (!image) {
-    return;
-  }
-  NSInteger bytes = image.reactDecodedImageBytes;
-  if (bytes <= RCTMaxCachableDecodedImageSizeInBytes) {
-    [self->_decodedImageCache setObject:image
-                                 forKey:cacheKey
-                                   cost:bytes];
-  }
+    if (!image) {
+        return;
+    }
+    NSInteger bytes = image.reactDecodedImageBytes;
+    NSDate *cachedDate = [NSDate date];
+    NSDictionary *imageObj = @{ @"image": image, @"cachedDate": cachedDate };
+    
+    if (bytes <= RCTMaxCachableDecodedImageSizeInBytes) {
+        [self->_decodedImageCache setObject:imageObj
+                                     forKey:cacheKey
+                                       cost:bytes];
+    }
 }
 
 - (UIImage *)imageForUrl:(NSString *)url
@@ -86,19 +92,31 @@ static NSString *RCTCacheKeyForImage(NSString *imageTag, CGSize size, CGFloat sc
                    scale:(CGFloat)scale
               resizeMode:(RCTResizeMode)resizeMode
 {
-  NSString *cacheKey = RCTCacheKeyForImage(url, size, scale, resizeMode);
-  @synchronized(_cacheStaleTimes) {
-    id staleTime = _cacheStaleTimes[cacheKey];
-    if (staleTime) {
-      if ([[NSDate new] compare:(NSDate *)staleTime] == NSOrderedDescending) {
-        // cached image has expired, clear it out to make room for others
-        [_cacheStaleTimes removeObjectForKey:cacheKey];
-        [_decodedImageCache removeObjectForKey:cacheKey];
-        return nil;
-      }
+    NSString *cacheKey = RCTCacheKeyForImage(url, size, scale, resizeMode);
+    @synchronized(_cacheStaleTimes) {
+        id staleTime = _cacheStaleTimes[cacheKey];
+        if (staleTime) {
+            if ([[NSDate new] compare:(NSDate *)staleTime] == NSOrderedDescending) {
+                // cached image has expired, clear it out to make room for others
+                [_cacheStaleTimes removeObjectForKey:cacheKey];
+                [_decodedImageCache removeObjectForKey:cacheKey];
+                return nil;
+            }
+        }
     }
-  }
-  return [_decodedImageCache objectForKey:cacheKey];
+    NSDictionary *imageObj = [_decodedImageCache objectForKey:cacheKey];
+    
+    NSDate *cacheDate = imageObj[@"cachedDate"];
+    UIImage *image = imageObj[@"image"];
+    
+    if (cacheDate) {
+        NSTimeInterval duration = [[NSDate date] timeIntervalSinceDate:imageObj[@"cachedDate"]];
+        if (duration > RCTCleanImgCacheSinceNow) {
+            return nil;
+        }
+    }
+    
+    return image;
 }
 
 - (void)addImageToCache:(UIImage *)image
