@@ -171,6 +171,12 @@ RCT_NOT_IMPLEMENTED(- (instancetype)init)
 - (instancetype)initWithFrame:(CGRect)frame
 {
   if ((self = [super initWithFrame:frame])) {
+    #ifdef __IPHONE_13_0
+    if (@available(iOS 13.0, *)) {
+        self.automaticallyAdjustsScrollIndicatorInsets = NO;
+    }
+    #endif
+
     [self.panGestureRecognizer addTarget:self action:@selector(handleCustomPan:)];
 
     if ([self respondsToSelector:@selector(setSemanticContentAttribute:)]) {
