@@ -335,6 +335,12 @@ class WebView extends React.Component {
      */
     schemeArr: PropTypes.array,
 
+
+    /**
+     * custom defined schemes
+     */
+    definedSchemes: PropTypes.array,
+
     /**
      * custom defined schemes
      */
@@ -564,6 +570,7 @@ class WebView extends React.Component {
         scalesPageToFit={scalesPageToFit}
         allowsInlineMediaPlayback={this.props.allowsInlineMediaPlayback}
         schemeArr={this.props.schemeArr}
+        definedSchemes={this.props.definedSchemes}
         mediaPlaybackRequiresUserAction={
           this.props.mediaPlaybackRequiresUserAction
         }
