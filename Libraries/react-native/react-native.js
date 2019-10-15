@@ -68,7 +68,6 @@ const ReactNative = {
   get TouchableWithoutFeedback() { return require('TouchableWithoutFeedback'); },
   get View() { return require('View'); },
   get ViewPagerAndroid() { return require('ViewPagerAndroid'); },
-  get WebView() { return require('WebView'); },
 
   // APIs
   get ActionSheetIOS() { return require('ActionSheetIOS'); },
