@@ -81,12 +81,3 @@ method NS_UNAVAILABLE { @throw _RCTNotImplementedException(_cmd, [self class]); 
 _Pragma("clang diagnostic pop")
 
 
-/**
- * Check if WebKit iOS 9.0 APIs are available.
- */
-#define WEBKIT_IOS_9_APIS_AVAILABLE __has_include(<WebKit/WKWebsiteDataStore.h>)
-
-/**
- * Check if WebKit iOS 10.0 APIs are available.
- */
-#define WEBKIT_IOS_10_APIS_AVAILABLE __has_include(<WebKit/WKDataDetectorTypes.h>)
