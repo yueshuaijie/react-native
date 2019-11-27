@@ -1241,6 +1241,10 @@ var Navigator = React.createClass({
       disabledSceneStyle = styles.disabledScene;
       disabledScenePointerEvents = 'none';
     }
+    route.passProps = {
+      ...route.passProps,
+      ref: 'view_' + i,
+    }
     return (
       <View
         key={'scene_' + getRouteID(route)}
