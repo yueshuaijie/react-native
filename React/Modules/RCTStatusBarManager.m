@@ -108,6 +108,14 @@ RCT_EXPORT_METHOD(setStyle:(UIStatusBarStyle)statusBarStyle
     RCTLogError(@"RCTStatusBarManager module requires that the \
                 UIViewControllerBasedStatusBarAppearance key in the Info.plist is set to NO");
   } else {
+    if (@available(iOS 13.0, *)) {
+        if (statusBarStyle == UIStatusBarStyleDefault) {
+            if ([[NSBundle mainBundle] infoDictionary][@"UIUserInterfaceStyle"]) {
+                statusBarStyle = UIStatusBarStyleDarkContent;
+            }
+        }
+    }
+
     [RCTSharedApplication() setStatusBarStyle:statusBarStyle
                                      animated:animated];
   }
