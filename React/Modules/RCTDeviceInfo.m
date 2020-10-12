@@ -60,24 +60,11 @@ RCT_EXPORT_MODULE()
 }
 
 static BOOL RCTIsIPhoneX() {
-  static BOOL isIPhoneX = NO;
-  static dispatch_once_t onceToken;
-
-  dispatch_once(&onceToken, ^{
-    RCTAssertMainQueue();
-
-    CGSize screenSize = [UIScreen mainScreen].nativeBounds.size;
-    CGSize iPhoneXScreenSize = CGSizeMake(1125, 2436);
-    CGSize iPhoneXMaxScreenSize = CGSizeMake(1242, 2688);
-    CGSize iPhoneXRScreenSize = CGSizeMake(828, 1792);
-
-    isIPhoneX =
-      CGSizeEqualToSize(screenSize, iPhoneXScreenSize) ||
-      CGSizeEqualToSize(screenSize, iPhoneXMaxScreenSize) ||
-      CGSizeEqualToSize(screenSize, iPhoneXRScreenSize);
-  });
-
-  return isIPhoneX;
+  if (@available(iOS 11.0, *)) {
+      return UIApplication.sharedApplication.keyWindow.safeAreaInsets.bottom > 0;
+  } else {
+      return NO;
+  }
 }
 
 static NSDictionary *RCTExportedDimensions(RCTBridge *bridge)
