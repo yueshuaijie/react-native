@@ -67,6 +67,21 @@ static BOOL RCTIsIPhoneX() {
   }
 }
 
+static BOOL RCTIsIPad() {
+  NSString *deviceType = [UIDevice currentDevice].model;
+  if( [deviceType isEqualToString:@"iPhone"]) {
+      //iPhone
+      return NO;
+  } else if ([deviceType isEqualToString:@"iPod touch"]) {
+      //iPod Touch
+      return NO;
+  } else if ([deviceType isEqualToString:@"iPad"]) {
+      //iPad
+      return YES;
+  }
+  return NO;
+}
+
 static NSDictionary *RCTExportedDimensions(RCTBridge *bridge)
 {
   RCTAssertMainQueue();
@@ -119,6 +134,7 @@ static NSDictionary *RCTExportedDimensions(RCTBridge *bridge)
     // Please use this only for a quick and temporary solution.
     // Use <SafeAreaView> instead.
     @"isIPhoneX_deprecated": @(RCTIsIPhoneX()),
+    @"isIPad": @(RCTIsIPad()),
   };
 }
 
