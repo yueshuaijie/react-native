@@ -113,7 +113,7 @@ RCT_EXPORT_METHOD(setStyle:(UIStatusBarStyle)statusBarStyle
         if (statusBarStyle == UIStatusBarStyleDefault) {
             RCTCustomConfig *config = [RCTCustomConfig sharedConfig];
             if (config.theme) {
-                if (config.theme == UIUserInterfaceStyleLight) {
+                if ([config.theme isEqualToString:@"light"]) {
                     statusBarStyle = UIStatusBarStyleDarkContent;
                 } else {
                     statusBarStyle = UIStatusBarStyleLightContent;
