@@ -21,4 +21,7 @@
 // 图片数量
 @property (nonatomic, assign) double imgCount;
 
+// 主题模式
+@property (nonatomic, assign) UIUserInterfaceStyle theme;
+
 @end

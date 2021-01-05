@@ -10,6 +10,7 @@
 #import "RCTEventDispatcher.h"
 #import "RCTLog.h"
 #import "RCTUtils.h"
+#import "RCTCustomConfig.h"
 
 #if !TARGET_OS_TV
 @implementation RCTConvert (UIStatusBar)
@@ -110,8 +111,17 @@ RCT_EXPORT_METHOD(setStyle:(UIStatusBarStyle)statusBarStyle
   } else {
     if (@available(iOS 13.0, *)) {
         if (statusBarStyle == UIStatusBarStyleDefault) {
-            if ([[NSBundle mainBundle] infoDictionary][@"UIUserInterfaceStyle"]) {
-                statusBarStyle = UIStatusBarStyleDarkContent;
+            RCTCustomConfig *config = [RCTCustomConfig sharedConfig];
+            if (config.theme) {
+                if (config.theme == UIUserInterfaceStyleLight) {
+                    statusBarStyle = UIStatusBarStyleDarkContent;
+                } else {
+                    statusBarStyle = UIStatusBarStyleLightContent;
+                }
+            } else {
+                if ([[NSBundle mainBundle] infoDictionary][@"UIUserInterfaceStyle"]) {
+                    statusBarStyle = UIStatusBarStyleDarkContent;
+                }
             }
         }
     }
