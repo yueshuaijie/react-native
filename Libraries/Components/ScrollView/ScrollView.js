@@ -994,7 +994,8 @@ class ScrollView extends React.Component<Props, State> {
               onLayout={event => this._onStickyHeaderLayout(index, event, key)}
               scrollAnimatedValue={this._scrollAnimatedValue}
               inverted={this.props.invertStickyHeaders}
-              scrollViewHeight={this.state.layoutHeight}>
+              scrollViewHeight={this.state.layoutHeight}
+              stickyHeadersAlwaysTop={this.props.stickyHeadersAlwaysTop}>>
               {child}
             </ScrollViewStickyHeader>
           );
