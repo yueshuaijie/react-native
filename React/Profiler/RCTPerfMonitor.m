@@ -39,6 +39,10 @@ static BOOL RCTJSCSetOption(const char *option)
 {
   static RCTJSCSetOptionType setOption;
   static dispatch_once_t onceToken;
+  
+  if (@available(iOS 13.4, *)) {
+    return NO;
+  }
 
   dispatch_once(&onceToken, ^{
     /**
